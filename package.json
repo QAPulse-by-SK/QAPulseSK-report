@@ -1,7 +1,7 @@
 {
   "name": "qapulsesk-report",
   "version": "1.0.1",
-  "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest — beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
+  "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest \u2014 beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -72,10 +72,18 @@
     "vitest": ">=0.30.0"
   },
   "peerDependenciesMeta": {
-    "@playwright/test": { "optional": true },
-    "cypress": { "optional": true },
-    "jest": { "optional": true },
-    "vitest": { "optional": true }
+    "@playwright/test": {
+      "optional": true
+    },
+    "cypress": {
+      "optional": true
+    },
+    "jest": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
   },
   "dependencies": {
     "open": "^9.1.0"
