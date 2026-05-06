@@ -1,12 +1,7 @@
 import * as path from 'path';
-import {
-  Reporter,
-  TestContext,
-  Test,
-  AggregatedResult,
-  AssertionResult,
-  TestResult as JestTestResult,
-} from '@jest/reporters';
+import type { Reporter, TestContext, Test, AggregatedResult, TestResult as JestTestResult } from '@jest/reporters';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AssertionResult = any;
 
 import { TestRun, TestSuite, TestResult, QAPulseReportConfig } from '../core/types';
 import { calculateStats, generateRunId, getFailedTests } from '../core/stats';
