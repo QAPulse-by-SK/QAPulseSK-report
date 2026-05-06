@@ -1,0 +1,9 @@
+src/
+examples/
+.github/
+*.test.ts
+tsconfig.json
+.eslintrc*
+coverage/
+.env*
+*.log

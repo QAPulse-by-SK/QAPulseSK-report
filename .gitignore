@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts.map
+.qapulse-history.json
+qapulse-report/
+coverage/
+.env
+.env.local
+*.log
