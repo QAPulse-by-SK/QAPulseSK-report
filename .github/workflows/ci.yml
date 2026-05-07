@@ -23,6 +23,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -35,10 +36,4 @@ jobs:
           cache: "npm"
       - run: npm install
       - run: npm run build
-      - name: Get OIDC token and publish
-        run: |
-          OIDC_TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm" | jq -r .value)
-          npm config set "//registry.npmjs.org/:_authToken" "$OIDC_TOKEN"
-          npm publish --access public --provenance
-        env:
-          NPM_CONFIG_PROVENANCE: true
+      - run: npm publish --access public --provenance
