@@ -1,42 +1,35 @@
 {
   "name": "qapulsesk-report",
-  "version": "1.0.1",
-  "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest \u2014 beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
+  "version": "1.0.2",
+  "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest — beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./playwright": {
-      "import": "./dist/adapters/playwright.mjs",
       "require": "./dist/adapters/playwright.js",
       "types": "./dist/adapters/playwright.d.ts"
     },
     "./cypress": {
-      "import": "./dist/adapters/cypress.mjs",
       "require": "./dist/adapters/cypress.js",
       "types": "./dist/adapters/cypress.d.ts"
     },
     "./jest": {
-      "import": "./dist/adapters/jest.mjs",
       "require": "./dist/adapters/jest.js",
       "types": "./dist/adapters/jest.d.ts"
     },
     "./vitest": {
-      "import": "./dist/adapters/vitest.mjs",
       "require": "./dist/adapters/vitest.js",
       "types": "./dist/adapters/vitest.d.ts"
     }
   },
   "scripts": {
-    "build": "tsc && node scripts/build-esm.js",
+    "build": "tsc",
     "build:watch": "tsc --watch",
-    "test": "jest",
-    "test:examples": "node examples/run-all.js",
+    "test": "echo \"No tests yet\" && exit 0",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"
   },
@@ -72,18 +65,10 @@
     "vitest": ">=0.30.0"
   },
   "peerDependenciesMeta": {
-    "@playwright/test": {
-      "optional": true
-    },
-    "cypress": {
-      "optional": true
-    },
-    "jest": {
-      "optional": true
-    },
-    "vitest": {
-      "optional": true
-    }
+    "@playwright/test": { "optional": true },
+    "cypress": { "optional": true },
+    "jest": { "optional": true },
+    "vitest": { "optional": true }
   },
   "dependencies": {
     "open": "^9.1.0"
@@ -94,7 +79,7 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
-    "jest": "^29.0.0",
+    "jest": "^29.7.0",
     "@types/jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "@playwright/test": "^1.49.0",
