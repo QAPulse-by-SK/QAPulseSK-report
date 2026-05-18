@@ -1,6 +1,6 @@
 {
   "name": "qapulsesk-report",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest — beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
