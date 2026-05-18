@@ -9,6 +9,8 @@
 > **The only test reporter you'll ever need.**
 > Playwright · Cypress · Jest · Vitest — one package, zero config, beautiful results.
 
+![qapulsesk-report demo](https://raw.githubusercontent.com/QAPulse-by-SK/QAPulseSK-report/main/assets/qapulse-report-final.gif)
+
 ---
 
 ## ✨ Why QAPulseSK-report?
