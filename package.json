@@ -3,31 +3,30 @@
   "version": "1.0.5",
   "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest — beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./playwright": {
-      "import": "./dist/adapters/playwright.mjs",
+      "import": "./dist/adapters/playwright.js",
       "require": "./dist/adapters/playwright.js",
       "types": "./dist/adapters/playwright.d.ts"
     },
     "./cypress": {
-      "import": "./dist/adapters/cypress.mjs",
+      "import": "./dist/adapters/cypress.js",
       "require": "./dist/adapters/cypress.js",
       "types": "./dist/adapters/cypress.d.ts"
     },
     "./jest": {
-      "import": "./dist/adapters/jest.mjs",
+      "import": "./dist/adapters/jest.js",
       "require": "./dist/adapters/jest.js",
       "types": "./dist/adapters/jest.d.ts"
     },
     "./vitest": {
-      "import": "./dist/adapters/vitest.mjs",
+      "import": "./dist/adapters/vitest.js",
       "require": "./dist/adapters/vitest.js",
       "types": "./dist/adapters/vitest.d.ts"
     }
