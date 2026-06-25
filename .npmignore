@@ -1,5 +1,6 @@
 src/
 examples/
+assets/
 .github/
 *.test.ts
 tsconfig.json
@@ -7,3 +8,7 @@ tsconfig.json
 coverage/
 .env*
 *.log
+*.py
+*.gif
+*.png
+*.jpg
