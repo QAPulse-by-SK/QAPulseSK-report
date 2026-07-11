@@ -69,6 +69,33 @@ async function run(label) {
   console.log('▶  Run 2…');
   await run('Run 2');
 
+  // Generate one report per theme so you can eyeball all 7
+  const ALL_THEMES = [
+    'qapulse-dark',
+    'qapulse-light',
+    'github-dark',
+    'github-light',
+    'dracula',
+    'solarized-light',
+    'minimal',
+  ];
+  for (const t of ALL_THEMES) {
+    const r = new QAPulsePuppeteerReporter({
+      outputDir: path.join(OUT, 'themes', t),
+      reportTitle: `Theme: ${t}`,
+      theme: { name: t },
+    });
+    r.startTest('passing test', { suite: 'Demo' });
+    r.endTest('passed');
+    r.startTest('failing test', { suite: 'Demo' });
+    r.endTest('failed', {
+      error: new Error('demo failure'),
+      screenshotPath: shotPath,
+    });
+    await r.finish();
+  }
+  console.log(`   generated ${ALL_THEMES.length} themed reports in .smoke-out/themes/`);
+
   const reportPath = path.join(OUT, 'qapulse-report.html');
   const historyPath = path.join(OUT, HISTORY_FILE);
 
@@ -95,6 +122,16 @@ async function run(label) {
   // Report screenshot dir shouldn't exist (small PNG inlined, not copied)
   const shotsDir = path.join(OUT, 'screenshots');
   check('Small PNG was inlined (not copied to screenshots/)', !fs.existsSync(shotsDir));
+
+  // Theme checks — verify color tokens actually landed in the HTML
+  const themedHtml = fs.readFileSync(path.join(OUT, 'themes', 'dracula', 'qapulse-report.html'), 'utf8');
+  const lightHtml = fs.readFileSync(path.join(OUT, 'themes', 'qapulse-light', 'qapulse-report.html'), 'utf8');
+  const ghDarkHtml = fs.readFileSync(path.join(OUT, 'themes', 'github-dark', 'qapulse-report.html'), 'utf8');
+  check('Dracula theme: bg #282a36', themedHtml.includes('#282a36'));
+  check('Dracula theme: purple #bd93f9', themedHtml.includes('#bd93f9'));
+  check('qapulse-light theme: bg #fbf9f4', lightHtml.includes('#fbf9f4'));
+  check('github-dark theme: bg #0d1117', ghDarkHtml.includes('#0d1117'));
+  check('Default report is qapulse-dark (#0d0f12)', html.includes('#0d0f12'));
 
   console.log('');
   const pad = 55;

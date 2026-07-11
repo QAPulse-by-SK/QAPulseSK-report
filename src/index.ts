@@ -16,6 +16,8 @@ export { HistoryManager } from './core/history';
 export { generateReport, withDefaults } from './core/orchestrator';
 export { attachScreenshot } from './core/screenshot-registry';
 export { collectScreenshots, makeScreenshot } from './core/screenshots';
+export { listThemes, resolveTheme, DEFAULT_THEME } from './core/themes';
+export type { ThemeName, ThemeVars } from './core/themes';
 
 export type {
   QAPulseReportConfig,

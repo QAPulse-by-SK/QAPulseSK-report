@@ -2,7 +2,7 @@
 // QAPulseSK-report — All-in-one test reporter by QAPulse by SK
 // https://skakarh.com · https://github.com/QAPulse-by-SK
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.makeScreenshot = exports.collectScreenshots = exports.attachScreenshot = exports.withDefaults = exports.generateReport = exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.QAPulseWebdriverIOReporter = exports.QAPulseSeleniumReporter = exports.QAPulsePuppeteerReporter = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
+exports.DEFAULT_THEME = exports.resolveTheme = exports.listThemes = exports.makeScreenshot = exports.collectScreenshots = exports.attachScreenshot = exports.withDefaults = exports.generateReport = exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.QAPulseWebdriverIOReporter = exports.QAPulseSeleniumReporter = exports.QAPulsePuppeteerReporter = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
 var playwright_1 = require("./adapters/playwright");
 Object.defineProperty(exports, "QAPulsePlaywrightReporter", { enumerable: true, get: function () { return playwright_1.QAPulsePlaywrightReporter; } });
 var jest_1 = require("./adapters/jest");
@@ -38,4 +38,8 @@ Object.defineProperty(exports, "attachScreenshot", { enumerable: true, get: func
 var screenshots_1 = require("./core/screenshots");
 Object.defineProperty(exports, "collectScreenshots", { enumerable: true, get: function () { return screenshots_1.collectScreenshots; } });
 Object.defineProperty(exports, "makeScreenshot", { enumerable: true, get: function () { return screenshots_1.makeScreenshot; } });
+var themes_1 = require("./core/themes");
+Object.defineProperty(exports, "listThemes", { enumerable: true, get: function () { return themes_1.listThemes; } });
+Object.defineProperty(exports, "resolveTheme", { enumerable: true, get: function () { return themes_1.resolveTheme; } });
+Object.defineProperty(exports, "DEFAULT_THEME", { enumerable: true, get: function () { return themes_1.DEFAULT_THEME; } });
 //# sourceMappingURL=index.js.map

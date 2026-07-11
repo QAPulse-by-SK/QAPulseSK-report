@@ -49,7 +49,7 @@ export async function generateReport(
   collectScreenshots(run, outputDir, config.screenshots);
 
   // 4. HTML render + write
-  const html = generateHTML(run, aiMap, history, reportTitle, config.logo);
+  const html = generateHTML(run, aiMap, history, reportTitle, config.logo, config.theme);
   const reportPath = writeReport(html, outputDir);
 
   // 4. Webhooks (opt-in)

@@ -38,6 +38,7 @@ exports.writeReport = writeReport;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const stats_1 = require("../core/stats");
+const themes_1 = require("./themes");
 function escapeHtml(str) {
     return str
         .replace(/&/g, '&amp;')
@@ -120,7 +121,7 @@ function renderSuite(suite, aiMap, depth = 0) {
     </div>
   `;
 }
-function renderTrendChart(history) {
+function renderTrendChart(history, themeVars) {
     if (history.length < 2)
         return '';
     const chartData = JSON.stringify(history.map(h => ({
@@ -146,19 +147,19 @@ function renderTrendChart(history) {
         data: {
           labels,
           datasets: [
-            { label: 'Pass Rate %', data: data.map(d => d.passRate), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.3, fill: true, yAxisID: 'y1' },
-            { label: 'Passed', data: data.map(d => d.passed), borderColor: '#22c55e', backgroundColor: 'transparent', tension: 0.3, borderDash: [4,2], yAxisID: 'y2' },
-            { label: 'Failed', data: data.map(d => d.failed), borderColor: '#ef4444', backgroundColor: 'transparent', tension: 0.3, borderDash: [4,2], yAxisID: 'y2' },
+            { label: 'Pass Rate %', data: data.map(d => d.passRate), borderColor: '${themeVars.blue}', backgroundColor: 'transparent', tension: 0.3, fill: false, yAxisID: 'y1' },
+            { label: 'Passed', data: data.map(d => d.passed), borderColor: '${themeVars.green}', backgroundColor: 'transparent', tension: 0.3, borderDash: [4,2], yAxisID: 'y2' },
+            { label: 'Failed', data: data.map(d => d.failed), borderColor: '${themeVars.red}', backgroundColor: 'transparent', tension: 0.3, borderDash: [4,2], yAxisID: 'y2' },
           ]
         },
         options: {
           responsive: true,
           interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { labels: { color: '#e8edf5' } } },
+          plugins: { legend: { labels: { color: '${themeVars.text}' } } },
           scales: {
-            x: { ticks: { color: '#8b95a3' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y1: { type: 'linear', position: 'left', min: 0, max: 100, ticks: { color: '#8b95a3', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y2: { type: 'linear', position: 'right', min: 0, ticks: { color: '#8b95a3' }, grid: { drawOnChartArea: false } },
+            x: { ticks: { color: '${themeVars.muted}' }, grid: { color: 'rgba(128,128,128,0.1)' } },
+            y1: { type: 'linear', position: 'left', min: 0, max: 100, ticks: { color: '${themeVars.muted}', callback: v => v + '%' }, grid: { color: 'rgba(128,128,128,0.1)' } },
+            y2: { type: 'linear', position: 'right', min: 0, ticks: { color: '${themeVars.muted}' }, grid: { drawOnChartArea: false } },
           }
         }
       });
@@ -166,11 +167,13 @@ function renderTrendChart(history) {
     </script>
   `;
 }
-function generateHTML(run, aiMap, history, reportTitle, logo) {
+function generateHTML(run, aiMap, history, reportTitle, logo, theme) {
     const { stats } = run;
+    const themeVars = (0, themes_1.resolveTheme)(theme);
+    const themeCss = (0, themes_1.renderThemeCss)(themeVars);
     const allFailed = (0, stats_1.flattenTests)(run.suites).filter(t => t.status === 'failed');
     const suiteBlocks = run.suites.map(s => renderSuite(s, aiMap)).join('');
-    const passColor = stats.passRate === 100 ? '#22c55e' : stats.failed > 0 ? '#ef4444' : '#f59e0b';
+    const passColor = stats.passRate === 100 ? themeVars.green : stats.failed > 0 ? themeVars.red : themeVars.amber;
     const generatedAt = new Date().toUTCString();
     const logoHtml = logo
         ? `<img src="${escapeHtml(logo)}" alt="Logo" class="report-logo" />`
@@ -184,22 +187,7 @@ function generateHTML(run, aiMap, history, reportTitle, logo) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0d0f12;
-    --card: #111418;
-    --blue: #3b82f6;
-    --blue-dim: #1d3a6e;
-    --text: #e8edf5;
-    --muted: #8b95a3;
-    --green: #22c55e;
-    --amber: #f59e0b;
-    --red: #ef4444;
-    --purple: #a78bfa;
-    --border: rgba(255,255,255,0.07);
-    --radius: 10px;
-    --font: 'Inter', system-ui, sans-serif;
-    --mono: 'JetBrains Mono', 'Fira Code', monospace;
-  }
+  ${themeCss}
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
   body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; }
   a { color: var(--blue); text-decoration: none; }
@@ -370,7 +358,7 @@ function generateHTML(run, aiMap, history, reportTitle, logo) {
   </div>
 
   <!-- Trend chart -->
-  ${renderTrendChart(history)}
+  ${renderTrendChart(history, themeVars)}
 
   <!-- Failed tests summary -->
   ${allFailed.length > 0 ? `

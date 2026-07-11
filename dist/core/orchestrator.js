@@ -71,7 +71,7 @@ async function generateReport(run, config) {
     // 3. Screenshots — copy / inline before HTML render
     (0, screenshots_1.collectScreenshots)(run, outputDir, config.screenshots);
     // 4. HTML render + write
-    const html = (0, generator_1.generateHTML)(run, aiMap, history, reportTitle, config.logo);
+    const html = (0, generator_1.generateHTML)(run, aiMap, history, reportTitle, config.logo, config.theme);
     const reportPath = (0, generator_1.writeReport)(html, outputDir);
     // 4. Webhooks (opt-in)
     if (config.webhooks) {

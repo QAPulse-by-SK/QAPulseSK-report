@@ -108,6 +108,8 @@ export interface CustomWebhook {
     template?: (run: TestRun) => object;
 }
 export interface ThemeConfig {
+    /** Preset name: 'qapulse-dark' (default), 'qapulse-light', 'github-dark', 'github-light', 'dracula', 'solarized-light', 'minimal'. */
+    name?: string;
     primaryColor?: string;
     backgroundColor?: string;
     cardColor?: string;
