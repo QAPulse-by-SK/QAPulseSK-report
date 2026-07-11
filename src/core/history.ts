@@ -45,6 +45,8 @@ export class HistoryManager {
     const trimmed = history.slice(-this.maxRuns);
 
     try {
+      const dir = path.dirname(this.historyFile);
+      if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(this.historyFile, JSON.stringify(trimmed, null, 2), 'utf-8');
     } catch {
       // Non-fatal — trend data just won't persist

@@ -10,7 +10,6 @@ export declare class QAPulsePlaywrightReporter implements PWReporter {
     constructor(config?: QAPulseReportConfig);
     onBegin(_config: PWFullConfig, suite: PWSuite): void;
     onEnd(result: PWFullResult): Promise<void>;
-    private _generate;
 }
 export default QAPulsePlaywrightReporter;
 //# sourceMappingURL=playwright.d.ts.map

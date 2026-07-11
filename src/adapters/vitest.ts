@@ -4,11 +4,9 @@ type VitestReporter = any;
 
 import * as path from 'path';
 import { TestRun, TestSuite, TestResult, QAPulseReportConfig } from '../core/types';
-import { calculateStats, generateRunId, getFailedTests } from '../core/stats';
-import { generateHTML, writeReport } from '../core/generator';
-import { analyzeFailures } from '../ai/analyzer';
-import { sendWebhooks } from '../webhooks/notifier';
-import { HistoryManager } from '../core/history';
+import { calculateStats, generateRunId } from '../core/stats';
+import { generateReport, withDefaults } from '../core/orchestrator';
+import { drainScreenshots } from '../core/screenshot-registry';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VFile = any;
@@ -29,15 +27,17 @@ function mapVitestFile(file: VFile): TestSuite {
   function walk(tasks: any[], prefix = ''): void {
     for (const task of tasks) {
       if (task.type === 'test') {
+        const fullTitle = prefix ? `${prefix} > ${task.name}` : task.name;
         tests.push({
           id: task.id, title: task.name,
-          fullTitle: prefix ? `${prefix} > ${task.name}` : task.name,
+          fullTitle,
           status: mapVitestStatus(task.result?.state),
           duration: task.result?.duration || 0,
           error: task.result?.error ? {
             message: (task.result.error as { message?: string }).message || String(task.result.error),
             stack: (task.result.error as { stack?: string }).stack,
           } : undefined,
+          screenshots: drainScreenshots(fullTitle),
           file: file.filepath,
         });
       } else if (task.type === 'suite' && task.tasks) {
@@ -56,7 +56,7 @@ export class QAPulseVitestReporter implements VitestReporter {
   private startTime: Date = new Date();
 
   constructor(config: QAPulseReportConfig = {}) {
-    this.config = { outputDir: 'qapulse-report', reportTitle: 'QAPulseSK Test Report', openAfterGeneration: false, ...config };
+    this.config = withDefaults(config);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,25 +67,16 @@ export class QAPulseVitestReporter implements VitestReporter {
     const suites = files.map(mapVitestFile);
     const endTime = new Date();
     const run: TestRun = {
-      id: generateRunId(), title: this.config.reportTitle!, startTime: this.startTime, endTime,
-      duration: endTime.getTime() - this.startTime.getTime(), suites, stats: calculateStats(suites), framework: 'vitest',
+      id: generateRunId(),
+      title: this.config.reportTitle!,
+      startTime: this.startTime,
+      endTime,
+      duration: endTime.getTime() - this.startTime.getTime(),
+      suites,
+      stats: calculateStats(suites),
+      framework: 'vitest',
     };
-    await this._generate(run);
-  }
-
-  private async _generate(run: TestRun): Promise<void> {
-    const outputDir = this.config.outputDir!;
-    const aiMap = this.config.ai?.enabled ? await analyzeFailures(getFailedTests(run), this.config.ai) : new Map();
-    let history: import('../core/types').TrendData[] = [];
-    if (this.config.history?.enabled) {
-      const hm = new HistoryManager({ ...this.config.history, historyFile: path.join(outputDir, this.config.history.historyFile || '.qapulse-history.json') });
-      history = hm.save(run);
-    }
-    const html = generateHTML(run, aiMap, history, this.config.reportTitle!, this.config.logo);
-    const reportPath = writeReport(html, outputDir);
-    if (this.config.webhooks) await sendWebhooks(run, this.config.webhooks);
-    console.log(`\n✅ QAPulseSK Report generated: ${reportPath}`);
-    if (this.config.openAfterGeneration) { const { default: open } = await import('open'); await open(reportPath); }
+    await generateReport(run, this.config);
   }
 }
 

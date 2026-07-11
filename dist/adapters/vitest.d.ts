@@ -10,7 +10,6 @@ export declare class QAPulseVitestReporter implements VitestReporter {
     onInit(ctx: any): void;
     onTaskUpdate(_packs: VTaskResultPack[]): void;
     onFinished(files?: VFile[]): Promise<void>;
-    private _generate;
 }
 export default QAPulseVitestReporter;
 //# sourceMappingURL=vitest.d.ts.map

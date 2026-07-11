@@ -9,7 +9,6 @@ declare class QAPulseJestReporter implements Reporter {
     getLastError(): void | Error;
     onTestContext(_testContext: TestContext): void;
     onRunComplete(_contexts: Set<TestContext>, results: AggregatedResult): Promise<void>;
-    private _generate;
 }
 export { QAPulseJestReporter };
 export default QAPulseJestReporter;

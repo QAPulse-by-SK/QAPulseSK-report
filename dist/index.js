@@ -2,7 +2,7 @@
 // QAPulseSK-report — All-in-one test reporter by QAPulse by SK
 // https://skakarh.com · https://github.com/QAPulse-by-SK
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
+exports.makeScreenshot = exports.collectScreenshots = exports.attachScreenshot = exports.withDefaults = exports.generateReport = exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.QAPulseWebdriverIOReporter = exports.QAPulseSeleniumReporter = exports.QAPulsePuppeteerReporter = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
 var playwright_1 = require("./adapters/playwright");
 Object.defineProperty(exports, "QAPulsePlaywrightReporter", { enumerable: true, get: function () { return playwright_1.QAPulsePlaywrightReporter; } });
 var jest_1 = require("./adapters/jest");
@@ -11,6 +11,12 @@ var vitest_1 = require("./adapters/vitest");
 Object.defineProperty(exports, "QAPulseVitestReporter", { enumerable: true, get: function () { return vitest_1.QAPulseVitestReporter; } });
 var cypress_1 = require("./adapters/cypress");
 Object.defineProperty(exports, "qapulseCypressPlugin", { enumerable: true, get: function () { return cypress_1.qapulseCypressPlugin; } });
+var puppeteer_1 = require("./adapters/puppeteer");
+Object.defineProperty(exports, "QAPulsePuppeteerReporter", { enumerable: true, get: function () { return puppeteer_1.QAPulsePuppeteerReporter; } });
+var selenium_1 = require("./adapters/selenium");
+Object.defineProperty(exports, "QAPulseSeleniumReporter", { enumerable: true, get: function () { return selenium_1.QAPulseSeleniumReporter; } });
+var webdriverio_1 = require("./adapters/webdriverio");
+Object.defineProperty(exports, "QAPulseWebdriverIOReporter", { enumerable: true, get: function () { return webdriverio_1.QAPulseWebdriverIOReporter; } });
 var analyzer_1 = require("./ai/analyzer");
 Object.defineProperty(exports, "analyzeFailures", { enumerable: true, get: function () { return analyzer_1.analyzeFailures; } });
 var notifier_1 = require("./webhooks/notifier");
@@ -24,4 +30,12 @@ Object.defineProperty(exports, "formatDuration", { enumerable: true, get: functi
 Object.defineProperty(exports, "getFailedTests", { enumerable: true, get: function () { return stats_1.getFailedTests; } });
 var history_1 = require("./core/history");
 Object.defineProperty(exports, "HistoryManager", { enumerable: true, get: function () { return history_1.HistoryManager; } });
+var orchestrator_1 = require("./core/orchestrator");
+Object.defineProperty(exports, "generateReport", { enumerable: true, get: function () { return orchestrator_1.generateReport; } });
+Object.defineProperty(exports, "withDefaults", { enumerable: true, get: function () { return orchestrator_1.withDefaults; } });
+var screenshot_registry_1 = require("./core/screenshot-registry");
+Object.defineProperty(exports, "attachScreenshot", { enumerable: true, get: function () { return screenshot_registry_1.attachScreenshot; } });
+var screenshots_1 = require("./core/screenshots");
+Object.defineProperty(exports, "collectScreenshots", { enumerable: true, get: function () { return screenshots_1.collectScreenshots; } });
+Object.defineProperty(exports, "makeScreenshot", { enumerable: true, get: function () { return screenshots_1.makeScreenshot; } });
 //# sourceMappingURL=index.js.map

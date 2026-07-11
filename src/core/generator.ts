@@ -24,6 +24,25 @@ function statusBadge(status: string): string {
   return map[status] || `<span class="badge">${status.toUpperCase()}</span>`;
 }
 
+function renderScreenshots(test: TestResult): string {
+  const shots = test.screenshots || [];
+  if (shots.length === 0) return '';
+  const items = shots.map((s, i) => {
+    const src = s.inlineDataUri || s.relativePath || '';
+    if (!src) return '';
+    const label = escapeHtml(s.name || `Screenshot ${i + 1}`);
+    const kindBadge = s.kind === 'onFailure'
+      ? '<span class="shot-kind shot-fail">on failure</span>'
+      : `<span class="shot-kind">${escapeHtml(s.kind)}</span>`;
+    return `
+      <figure class="shot">
+        <img src="${src}" alt="${label}" loading="lazy" onclick="qpLightbox('${src}','${label}')" />
+        <figcaption>${label} ${kindBadge}</figcaption>
+      </figure>`;
+  }).join('');
+  return `<div class="shots-gallery"><div class="shots-title">📷 Screenshots (${shots.length})</div><div class="shots-grid">${items}</div></div>`;
+}
+
 function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string {
   const ai = aiMap.get(test.id);
   const errorBlock = test.error
@@ -42,7 +61,9 @@ function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string
         <div class="ai-row"><strong>Suggestion:</strong> ${escapeHtml(ai.suggestion)}</div>
       </div>` : '';
 
-  const hasDetails = test.error || ai;
+  const shotsBlock = renderScreenshots(test);
+
+  const hasDetails = test.error || ai || shotsBlock;
 
   return `
     <tr class="test-row test-${test.status}" ${hasDetails ? `onclick="toggleDetails('${test.id}')"` : ''} ${hasDetails ? 'style="cursor:pointer"' : ''}>
@@ -52,7 +73,7 @@ function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string
       <td class="test-file">${escapeHtml(test.file || '')}</td>
     </tr>
     ${hasDetails ? `<tr class="details-row" id="details-${test.id}" style="display:none">
-      <td colspan="4">${errorBlock}${aiBlock}</td>
+      <td colspan="4">${errorBlock}${shotsBlock}${aiBlock}</td>
     </tr>` : ''}
   `;
 }
@@ -237,6 +258,24 @@ export function generateHTML(
   .ai-row { font-size: 12px; color: var(--text); margin-bottom: 6px; }
   .ai-row strong { color: var(--muted); font-weight: 500; margin-right: 4px; }
 
+  /* Screenshots gallery */
+  .shots-gallery { margin: 10px 0 4px; padding: 12px; background: rgba(59,130,246,0.04); border: 1px solid rgba(59,130,246,0.18); border-radius: 8px; }
+  .shots-title { font-size: 12px; font-weight: 600; color: var(--blue); margin-bottom: 10px; }
+  .shots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .shot { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 0; }
+  .shot img { display: block; width: 100%; height: 120px; object-fit: cover; cursor: zoom-in; transition: opacity 0.15s; }
+  .shot img:hover { opacity: 0.85; }
+  .shot figcaption { font-size: 10px; padding: 6px 8px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .shot-kind { font-size: 9px; padding: 1px 6px; border-radius: 3px; background: rgba(139,149,163,0.15); color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .shot-kind.shot-fail { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Lightbox */
+  .qp-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; display: none; align-items: center; justify-content: center; cursor: zoom-out; padding: 40px; }
+  .qp-lightbox.open { display: flex; }
+  .qp-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+  .qp-lightbox-caption { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 12px; }
+  .qp-lightbox-close { position: absolute; top: 20px; right: 24px; color: var(--text); font-size: 28px; cursor: pointer; background: none; border: none; }
+
   /* Chart */
   .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 
@@ -340,11 +379,32 @@ export function generateHTML(
   Created by QA Pulse by SK · skakarh.com
 </footer>
 
+<div class="qp-lightbox" id="qpLightbox" onclick="qpCloseLightbox()">
+  <button class="qp-lightbox-close" onclick="qpCloseLightbox(event)">×</button>
+  <img id="qpLightboxImg" src="" alt="" />
+  <div class="qp-lightbox-caption" id="qpLightboxCaption"></div>
+</div>
+
 <script>
   function toggleDetails(id) {
     const row = document.getElementById('details-' + id);
     if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
   }
+  function qpLightbox(src, label) {
+    event && event.stopPropagation();
+    const box = document.getElementById('qpLightbox');
+    document.getElementById('qpLightboxImg').src = src;
+    document.getElementById('qpLightboxCaption').textContent = label || '';
+    box.classList.add('open');
+  }
+  function qpCloseLightbox(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('qpLightbox').classList.remove('open');
+    document.getElementById('qpLightboxImg').src = '';
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') qpCloseLightbox();
+  });
 </script>
 </body>
 </html>`;

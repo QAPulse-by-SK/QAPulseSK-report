@@ -36,10 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QAPulseVitestReporter = void 0;
 const path = __importStar(require("path"));
 const stats_1 = require("../core/stats");
-const generator_1 = require("../core/generator");
-const analyzer_1 = require("../ai/analyzer");
-const notifier_1 = require("../webhooks/notifier");
-const history_1 = require("../core/history");
+const orchestrator_1 = require("../core/orchestrator");
+const screenshot_registry_1 = require("../core/screenshot-registry");
 function mapVitestStatus(state) {
     const map = {
         pass: 'passed', fail: 'failed', skip: 'skipped', todo: 'pending', run: 'pending',
@@ -53,15 +51,17 @@ function mapVitestFile(file) {
     function walk(tasks, prefix = '') {
         for (const task of tasks) {
             if (task.type === 'test') {
+                const fullTitle = prefix ? `${prefix} > ${task.name}` : task.name;
                 tests.push({
                     id: task.id, title: task.name,
-                    fullTitle: prefix ? `${prefix} > ${task.name}` : task.name,
+                    fullTitle,
                     status: mapVitestStatus(task.result?.state),
                     duration: task.result?.duration || 0,
                     error: task.result?.error ? {
                         message: task.result.error.message || String(task.result.error),
                         stack: task.result.error.stack,
                     } : undefined,
+                    screenshots: (0, screenshot_registry_1.drainScreenshots)(fullTitle),
                     file: file.filepath,
                 });
             }
@@ -76,7 +76,7 @@ function mapVitestFile(file) {
 class QAPulseVitestReporter {
     constructor(config = {}) {
         this.startTime = new Date();
-        this.config = { outputDir: 'qapulse-report', reportTitle: 'QAPulseSK Test Report', openAfterGeneration: false, ...config };
+        this.config = (0, orchestrator_1.withDefaults)(config);
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onInit(ctx) { this.ctx = ctx; this.startTime = new Date(); }
@@ -85,28 +85,16 @@ class QAPulseVitestReporter {
         const suites = files.map(mapVitestFile);
         const endTime = new Date();
         const run = {
-            id: (0, stats_1.generateRunId)(), title: this.config.reportTitle, startTime: this.startTime, endTime,
-            duration: endTime.getTime() - this.startTime.getTime(), suites, stats: (0, stats_1.calculateStats)(suites), framework: 'vitest',
+            id: (0, stats_1.generateRunId)(),
+            title: this.config.reportTitle,
+            startTime: this.startTime,
+            endTime,
+            duration: endTime.getTime() - this.startTime.getTime(),
+            suites,
+            stats: (0, stats_1.calculateStats)(suites),
+            framework: 'vitest',
         };
-        await this._generate(run);
-    }
-    async _generate(run) {
-        const outputDir = this.config.outputDir;
-        const aiMap = this.config.ai?.enabled ? await (0, analyzer_1.analyzeFailures)((0, stats_1.getFailedTests)(run), this.config.ai) : new Map();
-        let history = [];
-        if (this.config.history?.enabled) {
-            const hm = new history_1.HistoryManager({ ...this.config.history, historyFile: path.join(outputDir, this.config.history.historyFile || '.qapulse-history.json') });
-            history = hm.save(run);
-        }
-        const html = (0, generator_1.generateHTML)(run, aiMap, history, this.config.reportTitle, this.config.logo);
-        const reportPath = (0, generator_1.writeReport)(html, outputDir);
-        if (this.config.webhooks)
-            await (0, notifier_1.sendWebhooks)(run, this.config.webhooks);
-        console.log(`\n✅ QAPulseSK Report generated: ${reportPath}`);
-        if (this.config.openAfterGeneration) {
-            const { default: open } = await Promise.resolve().then(() => __importStar(require('open')));
-            await open(reportPath);
-        }
+        await (0, orchestrator_1.generateReport)(run, this.config);
     }
 }
 exports.QAPulseVitestReporter = QAPulseVitestReporter;

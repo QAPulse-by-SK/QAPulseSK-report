@@ -1,7 +1,7 @@
 {
   "name": "qapulsesk-report",
-  "version": "1.0.6",
-  "description": "All-in-one test reporter for Playwright, Cypress, Jest & Vitest — beautiful dark-theme HTML reports, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
+  "version": "2.0.0",
+  "description": "All-in-one test reporter for Playwright, Cypress, Jest, Vitest, Puppeteer, Selenium & WebdriverIO — beautiful dark-theme HTML reports with screenshots on failure, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -29,12 +29,28 @@
       "import": "./dist/adapters/vitest.js",
       "require": "./dist/adapters/vitest.js",
       "types": "./dist/adapters/vitest.d.ts"
+    },
+    "./puppeteer": {
+      "import": "./dist/adapters/puppeteer.js",
+      "require": "./dist/adapters/puppeteer.js",
+      "types": "./dist/adapters/puppeteer.d.ts"
+    },
+    "./selenium": {
+      "import": "./dist/adapters/selenium.js",
+      "require": "./dist/adapters/selenium.js",
+      "types": "./dist/adapters/selenium.d.ts"
+    },
+    "./webdriverio": {
+      "import": "./dist/adapters/webdriverio.js",
+      "require": "./dist/adapters/webdriverio.js",
+      "types": "./dist/adapters/webdriverio.d.ts"
     }
   },
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "echo \"No tests yet\" && exit 0",
+    "smoke": "node scripts/smoke-test.js",
     "test:examples": "node examples/run-all.js",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"
@@ -46,7 +62,11 @@
     "cypress-reporter",
     "jest-reporter",
     "vitest-reporter",
+    "puppeteer-reporter",
+    "selenium-reporter",
+    "webdriverio-reporter",
     "html-reporter",
+    "screenshots-on-failure",
     "ai-testing",
     "test-automation",
     "qa"
@@ -68,21 +88,19 @@
     "@playwright/test": ">=1.30.0",
     "cypress": ">=12.0.0",
     "jest": ">=29.0.0",
-    "vitest": ">=0.30.0"
+    "vitest": ">=0.30.0",
+    "puppeteer": ">=20.0.0",
+    "selenium-webdriver": ">=4.0.0",
+    "webdriverio": ">=8.0.0"
   },
   "peerDependenciesMeta": {
-    "@playwright/test": {
-      "optional": true
-    },
-    "cypress": {
-      "optional": true
-    },
-    "jest": {
-      "optional": true
-    },
-    "vitest": {
-      "optional": true
-    }
+    "@playwright/test": { "optional": true },
+    "cypress": { "optional": true },
+    "jest": { "optional": true },
+    "vitest": { "optional": true },
+    "puppeteer": { "optional": true },
+    "selenium-webdriver": { "optional": true },
+    "webdriverio": { "optional": true }
   },
   "dependencies": {
     "open": "^9.1.0"

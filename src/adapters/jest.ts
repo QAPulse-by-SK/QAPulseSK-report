@@ -4,11 +4,9 @@ import type { Reporter, TestContext, Test, AggregatedResult, TestResult as JestT
 type AssertionResult = any;
 
 import { TestRun, TestSuite, TestResult, QAPulseReportConfig } from '../core/types';
-import { calculateStats, generateRunId, getFailedTests } from '../core/stats';
-import { generateHTML, writeReport } from '../core/generator';
-import { analyzeFailures } from '../ai/analyzer';
-import { sendWebhooks } from '../webhooks/notifier';
-import { HistoryManager } from '../core/history';
+import { calculateStats, generateRunId } from '../core/stats';
+import { generateReport, withDefaults } from '../core/orchestrator';
+import { drainScreenshots } from '../core/screenshot-registry';
 
 function mapJestStatus(status: AssertionResult['status']): TestResult['status'] {
   const map: Record<string, TestResult['status']> = {
@@ -32,6 +30,7 @@ function mapJestSuite(suite: JestTestResult): TestSuite {
     error: t.failureMessages.length > 0
       ? { message: t.failureMessages[0].split('\n')[0], stack: t.failureMessages[0] }
       : undefined,
+    screenshots: drainScreenshots(t.fullName),
     file: suite.testFilePath,
   }));
 
@@ -48,12 +47,7 @@ class QAPulseJestReporter implements Reporter {
   private config: QAPulseReportConfig;
 
   constructor(_globalConfig: unknown, options: QAPulseReportConfig = {}) {
-    this.config = {
-      outputDir: 'qapulse-report',
-      reportTitle: 'QAPulseSK Test Report',
-      openAfterGeneration: false,
-      ...options,
-    };
+    this.config = withDefaults(options);
   }
 
   onRunStart(): void {}
@@ -78,38 +72,7 @@ class QAPulseJestReporter implements Reporter {
       framework: 'jest',
     };
 
-    await this._generate(run);
-  }
-
-  private async _generate(run: TestRun): Promise<void> {
-    const outputDir = this.config.outputDir!;
-    const aiMap = this.config.ai?.enabled
-      ? await analyzeFailures(getFailedTests(run), this.config.ai)
-      : new Map();
-
-    let history: import('../core/types').TrendData[] = [];
-    if (this.config.history?.enabled) {
-      const hm = new HistoryManager({
-        ...this.config.history,
-        historyFile: path.join(outputDir, this.config.history.historyFile || '.qapulse-history.json'),
-      });
-      history = hm.save(run);
-    }
-
-    const html = generateHTML(run, aiMap, history, this.config.reportTitle!, this.config.logo);
-    const reportPath = writeReport(html, outputDir);
-
-    if (this.config.webhooks) {
-      await sendWebhooks(run, this.config.webhooks);
-    }
-
-    console.log(`\n✅ QAPulseSK Report generated: ${reportPath}`);
-    console.log(`   Pass rate: ${run.stats.passRate}% (${run.stats.passed}/${run.stats.total})`);
-
-    if (this.config.openAfterGeneration) {
-      const { default: open } = await import('open');
-      await open(reportPath);
-    }
+    await generateReport(run, this.config);
   }
 }
 
