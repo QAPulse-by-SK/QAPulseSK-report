@@ -114,6 +114,7 @@ async function run(label) {
   check('HTML contains failed test title', html.includes('login fails with wrong password'));
   check('HTML contains Puppeteer framework badge', html.toUpperCase().includes('PUPPETEER'));
   check('HTML contains trend chart canvas', html.includes('id="trendChart"'));
+  check('HTML contains sparkline SVG (needs >=2 runs)', html.includes('class="sparkline"'));
 
   const history = fs.existsSync(historyPath) ? JSON.parse(fs.readFileSync(historyPath, 'utf8')) : [];
   check('History contains 2 runs after 2 executions', history.length === 2, `got ${history.length}`);

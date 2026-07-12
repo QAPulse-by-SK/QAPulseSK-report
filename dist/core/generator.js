@@ -121,6 +121,30 @@ function renderSuite(suite, aiMap, depth = 0) {
     </div>
   `;
 }
+function renderSparkline(history, color) {
+    if (history.length < 2)
+        return '';
+    const w = 120;
+    const h = 28;
+    const vals = history.map(h => h.passRate);
+    const min = Math.min(...vals, 0);
+    const max = Math.max(...vals, 100);
+    const range = max - min || 1;
+    const step = w / (vals.length - 1);
+    const points = vals.map((v, i) => {
+        const x = (i * step).toFixed(1);
+        const y = (h - ((v - min) / range) * h).toFixed(1);
+        return `${x},${y}`;
+    }).join(' ');
+    const lastVal = vals[vals.length - 1];
+    const lastX = ((vals.length - 1) * step).toFixed(1);
+    const lastY = (h - ((lastVal - min) / range) * h).toFixed(1);
+    return `
+    <svg class="sparkline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none">
+      <polyline fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${points}" />
+      <circle cx="${lastX}" cy="${lastY}" r="2" fill="${color}" />
+    </svg>`;
+}
 function renderTrendChart(history, themeVars) {
     if (history.length < 2)
         return '';
@@ -211,11 +235,13 @@ function generateHTML(run, aiMap, history, reportTitle, logo, theme) {
   .stat-value { font-size: 28px; font-weight: 600; line-height: 1; }
   .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-  /* Pass rate ring */
+  /* Pass rate card */
   .pass-rate-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
+  .pass-rate-body { flex: 1; min-width: 0; }
   .pass-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
   .pass-ring svg { transform: rotate(-90deg); }
   .pass-ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; font-weight: 600; }
+  .sparkline { display: block; margin-top: 6px; width: 100%; max-width: 140px; height: 24px; }
 
   /* Section */
   .section { margin-bottom: 28px; }
@@ -316,16 +342,17 @@ function generateHTML(run, aiMap, history, reportTitle, logo, theme) {
     <div class="pass-rate-card">
       <div class="pass-ring">
         <svg viewBox="0 0 64 64" width="64" height="64">
-          <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+          <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(128,128,128,0.15)" stroke-width="6"/>
           <circle cx="32" cy="32" r="26" fill="none" stroke="${passColor}" stroke-width="6"
             stroke-dasharray="${Math.round(2 * Math.PI * 26 * stats.passRate / 100)} ${Math.round(2 * Math.PI * 26)}"
             stroke-linecap="round"/>
         </svg>
         <div class="pass-ring-text" style="color:${passColor}">${stats.passRate}%</div>
       </div>
-      <div>
+      <div class="pass-rate-body">
         <div class="stat-label">Pass rate</div>
         <div style="font-size:13px;color:var(--muted)">${stats.passed} of ${stats.total} tests</div>
+        ${renderSparkline(history, themeVars.blue)}
       </div>
     </div>
     <div class="stat-card">
