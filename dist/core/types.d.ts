@@ -122,8 +122,17 @@ export interface AIConfig {
 export interface WebhookConfig {
     slack?: string;
     teams?: string;
+    discord?: string;
     custom?: CustomWebhook[];
     notifyOnFailOnly?: boolean;
+    /** Public URL where the HTML report is hosted — turns into a button in cards. */
+    reportUrl?: string;
+    /** Ping this Slack user/group ID on regressions (e.g. 'U0123ABC' or 'S0123ABC'). */
+    mentionOnRegression?: string;
+    /** Also ping when there are new (not previously seen) failures. Default: false. */
+    mentionOnNewFailures?: boolean;
+    /** Max failed test titles to include in the card. Default: 5. */
+    maxFailedInCard?: number;
 }
 export interface CustomWebhook {
     url: string;

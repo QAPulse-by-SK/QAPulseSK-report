@@ -1,6 +1,6 @@
 {
   "name": "qapulsesk-report",
-  "version": "2.0.0",
+  "version": "2.3.0",
   "description": "All-in-one test reporter for Playwright, Cypress, Jest, Vitest, Puppeteer, Selenium & WebdriverIO — beautiful dark-theme HTML reports with screenshots on failure, AI failure analysis, Slack/Teams webhooks. By QAPulse by SK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -51,6 +51,7 @@
     "build:watch": "tsc --watch",
     "test": "echo \"No tests yet\" && exit 0",
     "smoke": "node scripts/smoke-test.js",
+    "smoke:webhooks": "node scripts/smoke-webhooks.js",
     "test:examples": "node examples/run-all.js",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"

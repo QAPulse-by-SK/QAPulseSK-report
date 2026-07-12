@@ -1,77 +1,61 @@
 # Release Notes
 
+## v2.3.0 — 2026-07-12
+
+Webhooks that actually help.
+
+- **Rich Slack / Teams / Discord payloads**: framework badge, pass rate, git branch + commit + message, `+N new / −N recovered / N still failing` vs previous run, top 3 failure clusters, top failed test titles, clickable **📊 View report** / **🔀 PR** / **⚙️ CI job** buttons.
+- **Discord** support added (`config.webhooks.discord = <url>`).
+- **`reportUrl`** config field turns into the primary "View report" button in every card.
+- **`mentionOnRegression`** pings a Slack user or group id when there are new failures and none recovered.
+- **`maxFailedInCard`** caps the failed-titles list (default 5).
+- **Live-fire smoke test** — `npm run smoke:webhooks` provisions a webhook.site inbox, sends real requests to all three platforms, verifies payload structure.
+
+Legacy `webhooks.custom` templates still work.
+
+## v2.2.0 — 2026-07-12
+
+Failure triage.
+
+- **🧩 Failure clustering** — local error-signature bucketing normalizes timestamps, UUIDs, hex, paths, and integers before hashing. Similar failures collapse into a single card with a `×N` count. When AI is enabled, analysis runs once per cluster instead of once per test — token spend drops in proportion to dedup ratio.
+- **🔍 Insights section** with 4 zero-dep SVG cards:
+  - Suite health matrix (heatmap of per-suite pass rate)
+  - Duration distribution histogram
+  - Top 10 slowest tests
+  - Per-suite execution timeline
+- **Diff vs previous run** banner: `+N new · −N recovered · N still failing`.
+- **Failure-state badges** on every failing test row: 🆕 new / 💥 regression / 🔁 recurring (×N). Computed by comparing per-test outcomes across the persisted history.
+- **Auto git + CI metadata bar** at the top of the report: branch, short commit, commit message, author, PR link, CI job link. Detects **GitHub Actions**, **GitLab CI**, **CircleCI**, **Jenkins**, **Bitbucket Pipelines**, and a generic `CI=true` fallback. Disable with `disableAutoMetadata: true`.
+- **JSON export** — `qapulse-report.json` alongside the HTML, containing the full normalized `TestRun`, clusters, diff, and failure states. Disable with `emitJson: false`.
+- **Sparkline** in the pass-rate card (theme-colored SVG).
+- Fix: `HistoryManager.save()` now creates the output directory if it doesn't exist yet — previously the first run's history was silently dropped.
+
+Public exports: `clusterFailures`, `signatureFor`, `clusterIdFor`, `detectMetadata`, `mergeMetadata`, `classifyFailures`, `computeDiff`, `buildOutcomes`, `RunMetadata`, `FailureCluster`, `RunDiff`, `FailureState`, `HistoryEntry`.
+
+## v2.1.0 — 2026-07-11
+
+- **7 built-in themes** with CSS-var registry: `qapulse-dark` (default), `qapulse-light`, `github-dark`, `github-light`, `dracula`, `solarized-light`, `minimal`. Choose with `theme: { name: '...' }`. Trend chart colors follow the theme.
+- Legacy overrides (`primaryColor`, `backgroundColor`, `cardColor`) still work and win over the preset.
+- Public: `listThemes`, `resolveTheme`, `DEFAULT_THEME`, `ThemeName`, `ThemeVars`.
+
 ## v2.0.0 — 2026-07-11
 
-Biggest release since launch. Three new runners, screenshots on failure across all of them, and a full internal refactor.
+Biggest release since launch.
 
-### 🆕 New runners (4 → 7)
+- **Screenshots on failure across all 7 runners** with a click-to-zoom lightbox. Zero-dep collector inlines images ≤200 KB as base64 data URIs so the report stays a single portable file; larger images copy to `<outputDir>/screenshots/`.
+  - Playwright: reads `result.attachments[]` natively.
+  - Cypress: reads `run.screenshots[]` keyed by `testId` natively.
+  - Jest / Vitest / Puppeteer / Selenium / WebdriverIO: one-line `attachScreenshot(fullTestName, path)` in a hook.
+- **3 new runners** — Puppeteer, Selenium, WebdriverIO. Total: 4 → 7.
+  - Puppeteer + Selenium: imperative `startTest / endTest / finish` API since they have no test runner of their own.
+  - WebdriverIO: native `Reporter` contract, drops into `wdio.conf` `reporters: []`.
+- **Shared orchestrator refactor** — extracted the duplicated AI → history → HTML → webhooks pipeline out of every adapter. Adapters are now pure runner→`TestRun` mappers.
+- Public exports: `generateReport`, `withDefaults`, `attachScreenshot`, `collectScreenshots`, `makeScreenshot`, `Screenshot`, `ScreenshotConfig`.
+- `SupportedFramework` now includes `puppeteer`, `selenium`, `webdriverio`.
 
-Puppeteer, Selenium, and WebdriverIO joined Playwright, Cypress, Jest, and Vitest.
+No breaking changes for existing Playwright / Cypress / Jest / Vitest users.
 
-- **`qapulsesk-report/puppeteer`** — `QAPulsePuppeteerReporter`. Puppeteer has no runner of its own, so the reporter exposes a small imperative API: `startTest()`, `endTest(status, { error, screenshotPath })`, `finish()`. Pass a screenshot path when a test fails and it lands in the report.
-- **`qapulsesk-report/selenium`** — `QAPulseSeleniumReporter`. Same imperative API as Puppeteer. Works with `selenium-webdriver` Node bindings. `driver.takeScreenshot()` returns base64 — write it to disk and pass the path.
-- **`qapulsesk-report/webdriverio`** — `QAPulseWebdriverIOReporter`. Native WDIO Reporter contract (`onSuiteStart`, `onTestEnd`, `onRunnerEnd`). Drop it into `reporters: []` in `wdio.conf.ts`.
-
-### 📷 Screenshots on failure — all 7 runners
-
-The single biggest DX upgrade in this release. Failed tests now show a screenshot gallery inline, with a click-to-zoom lightbox (ESC to close).
-
-- **Playwright** — zero config. Reads `result.attachments[]` from the runner. Already produced by `use: { screenshot: 'only-on-failure' }`.
-- **Cypress** — zero config. Reads `run.screenshots[]` keyed by `testId`. Already produced by Cypress on failure by default.
-- **Jest / Vitest / Puppeteer / Selenium / WebdriverIO** — one-liner via the new `attachScreenshot(fullTestName, path)` helper. Puppeteer and Selenium can also pass `screenshotPath` directly into `endTest()`.
-
-Under the hood: a zero-dep collector inlines images ≤ 200 KB as base64 data URIs (so the report stays a single portable HTML file) and copies larger ones into `<outputDir>/screenshots/` with sanitized filenames. Threshold is configurable via `screenshots.inlineThresholdKb`.
-
-New config surface:
-
-```ts
-screenshots: {
-  enabled: true,            // default
-  onFailure: true,          // default
-  onPass: false,            // default
-  inlineThresholdKb: 200,   // default
-  outputSubdir: 'screenshots', // default
-}
-```
-
-### 🧱 Internal refactor — shared orchestrator
-
-Every adapter used to carry its own duplicated `_generate()` pipeline (AI → history → HTML → webhooks → open). That's now `src/core/orchestrator.ts`. Adapters are pure runner-to-`TestRun` mappers; adding a new runner is now ~80 lines instead of ~150.
-
-If you were importing internals directly, note the new exports: `generateReport`, `withDefaults`, `attachScreenshot`, `collectScreenshots`, `makeScreenshot`.
-
-### 🔤 New types (public)
-
-- `Screenshot` — sourcePath, kind (`onFailure | onEnd | manual | step`), relativePath, inlineDataUri
-- `ScreenshotConfig` — as documented above
-- `TestResult.screenshots?: Screenshot[]`
-- `SupportedFramework` extended with `puppeteer`, `selenium`, `webdriverio`
-
-### 💥 Breaking changes
-
-None for existing Playwright, Cypress, Jest, or Vitest users. Config is additive, existing adapters keep the same class names and signatures. Version bumped to 2.0.0 because runner surface area changed and new subpath exports were added.
-
-### 📦 Install / upgrade
-
-```bash
-npm i qapulsesk-report@latest --save-dev
-```
-
-Peer deps for the new runners (all optional):
-
-```
-puppeteer          >= 20.0.0
-selenium-webdriver >= 4.0.0
-webdriverio        >= 8.0.0
-```
-
-### 🗺️ What's next (Phase 1 remaining)
-
-- Multiple themes (default dark, light, github, dracula, solarized, minimal)
-- Pass rate sparkline in the stat card (trend chart already exists as a full section)
-- AI failure clustering — group similar failures, one suggested fix per cluster
-
----
+Peer deps (all optional): `puppeteer >= 20.0.0`, `selenium-webdriver >= 4.0.0`, `webdriverio >= 8.0.0`.
 
 ## v1.0.6 — previous stable
 

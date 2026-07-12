@@ -123,7 +123,7 @@ async function generateReport(run, config) {
     }
     // 6. Webhooks (opt-in)
     if (config.webhooks) {
-        await (0, notifier_1.sendWebhooks)(run, config.webhooks);
+        await (0, notifier_1.sendWebhooks)(run, config.webhooks, { clusters, diff });
     }
     // 7. Console + open
     console.log(`\n✅ QAPulseSK Report generated: ${reportPath}`);

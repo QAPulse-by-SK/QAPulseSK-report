@@ -7,7 +7,7 @@
 [![QAPulse by SK](https://img.shields.io/badge/QAPulse%20by%20SK-Test%20Automation%20Hub-3b82f6?style=for-the-badge)](https://skakarh.com)
 
 > **The only test reporter you'll ever need.**
-> Playwright · Cypress · Jest · Vitest — one package, zero config, beautiful results.
+> Playwright · Cypress · Jest · Vitest · Puppeteer · Selenium · WebdriverIO — one package, zero config, beautiful results.
 
 ![qapulsesk-report demo](https://raw.githubusercontent.com/QAPulse-by-SK/QAPulseSK-report/main/assets/qapulse-report-final.gif)
 
@@ -19,14 +19,16 @@ Most teams install 4–5 separate reporter packages — one per framework, one f
 
 | Feature | QAPulseSK-report | Others |
 |---|---|---|
-| Playwright support | ✅ | ✅ |
-| Cypress support | ✅ | Separate package |
-| Jest support | ✅ | Separate package |
-| Vitest support | ✅ | Separate package |
-| Beautiful dark-theme HTML | ✅ | Basic / ugly |
+| 7 test runners in one package | ✅ | ❌ 1 per package |
+| Screenshots on failure (all runners) | ✅ | Partial |
+| Failure clustering (dedup similar errors) | ✅ | ❌ |
+| 7 built-in themes | ✅ | ❌ |
+| Trend + sparkline + histogram + timeline | ✅ | Paid |
+| Diff vs previous run + failure state badges | ✅ | ❌ |
+| Auto git/CI metadata (branch, commit, PR link) | ✅ | ❌ |
 | AI failure analysis | ✅ Opt-in, your key | ❌ |
-| Slack + Teams webhooks | ✅ Built-in | ❌ |
-| Trend charts | ✅ Built-in | Paid |
+| Slack + Teams + Discord webhooks | ✅ Built-in, rich | Basic |
+| JSON export | ✅ | ❌ |
 | Zero cost to use | ✅ Always | Often paid |
 
 ---
@@ -37,14 +39,13 @@ Most teams install 4–5 separate reporter packages — one per framework, one f
 npm install qapulsesk-report --save-dev
 ```
 
+Node 18+ required.
+
 ---
 
-## 📖 Usage
+## 📖 Quick Start — Per Runner
 
 ### Playwright
-
-> ⚠️ **Important:** Point directly to the Playwright adapter file, not the package root.
-> This is required because Playwright expects a reporter to export a single class.
 
 ```typescript
 // playwright.config.ts
@@ -52,35 +53,22 @@ import { defineConfig } from '@playwright/test';
 import path from 'path';
 
 export default defineConfig({
+  use: { screenshot: 'only-on-failure' },   // <- enables screenshot capture
   reporter: [
     ['list'],
     [
-      // Point to the adapter directly
       path.resolve(__dirname, 'node_modules/qapulsesk-report/dist/adapters/playwright.js'),
       {
-        outputDir:           'qapulse-report',
-        reportTitle:         'My E2E Tests',
-        openAfterGeneration: false,
-
-        // 📊 Trend charts across runs
-        history: { enabled: true },
-
-        // 🤖 AI failure analysis — optional, your key, zero cost to us
-        // ai: {
-        //   enabled: true,
-        //   apiKey: process.env.ANTHROPIC_API_KEY,
-        // },
-
-        // 🔔 Slack / Teams notifications — optional
-        // webhooks: {
-        //   slack: { url: process.env.SLACK_WEBHOOK_URL },
-        //   onlyOnFail: true,
-        // },
+        outputDir:   'qapulse-report',
+        reportTitle: 'My E2E Tests',
+        history:     { enabled: true },
       }
     ],
   ],
 });
 ```
+
+Playwright screenshots ship natively — no extra hooks needed.
 
 ### Cypress
 
@@ -93,9 +81,10 @@ export default defineConfig({
   reporterOptions: {
     outputDir:   'qapulse-report',
     reportTitle: 'My Cypress Tests',
-    history: { enabled: true },
+    history:     { enabled: true },
   },
   e2e: {
+    screenshotOnRunFailure: true,   // <- default true, keep it on
     setupNodeEvents(on, config) { return config; }
   }
 });
@@ -115,6 +104,22 @@ module.exports = {
     }],
   ],
 };
+```
+
+For screenshots (Jest + Puppeteer):
+
+```javascript
+// jest.setup.js
+const { attachScreenshot } = require('qapulsesk-report');
+
+afterEach(async () => {
+  const state = expect.getState();
+  if (state.assertionCalls > 0 && state.numPassingAsserts < state.assertionCalls) {
+    const p = `/tmp/${Date.now()}.png`;
+    await page.screenshot({ path: p });
+    attachScreenshot(state.currentTestName, p);
+  }
+});
 ```
 
 ### Vitest
@@ -138,97 +143,279 @@ export default defineConfig({
 });
 ```
 
----
+Screenshots via `attachScreenshot` (same as Jest above).
 
-## 📊 What The Report Shows
-
-After every test run `qapulse-report/qapulse-report.html` contains:
-
-- **Pass rate ring** — visual percentage at a glance
-- **Stats bar** — passed / failed / skipped / duration
-- **Trend chart** — pass rate history across multiple runs
-- **Failed tests section** — expandable rows with full error messages
-- **All suites** — expandable list of every suite and test
-- **AI failure analysis** — plain-English explanation of why tests failed *(optional)*
-- **QA Pulse by SK branding** footer
-
----
-
-## 🤖 AI Failure Analysis *(Optional)*
-
-Unlock AI-powered failure summaries by adding your own API key. **We never call any AI service by default — zero cost, zero data sent.**
+### Puppeteer *(standalone, no runner)*
 
 ```typescript
-[
-  path.resolve(__dirname, 'node_modules/qapulsesk-report/dist/adapters/playwright.js'),
-  {
-    outputDir:   'qapulse-report',
-    reportTitle: 'My Tests',
-    ai: {
-      enabled: true,
-      apiKey:  process.env.ANTHROPIC_API_KEY, // your key, your cost
-    }
-  }
-]
+import puppeteer from 'puppeteer';
+import { QAPulsePuppeteerReporter } from 'qapulsesk-report/puppeteer';
+
+const reporter = new QAPulsePuppeteerReporter({
+  outputDir:   'qapulse-report',
+  reportTitle: 'Smoke Suite',
+  history:     { enabled: true },
+});
+
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+
+reporter.startTest('Home page loads', { suite: 'Public' });
+try {
+  await page.goto('https://example.com');
+  await page.waitForSelector('h1');
+  reporter.endTest('passed');
+} catch (err) {
+  const shot = `/tmp/${Date.now()}.png`;
+  await page.screenshot({ path: shot });
+  reporter.endTest('failed', { error: err, screenshotPath: shot });
+}
+
+await browser.close();
+await reporter.finish();
 ```
 
-For each failed test you get:
-- **Summary** — plain English explanation of what went wrong
-- **Root cause** — what actually caused the failure
-- **Suggestion** — concrete fix recommendation
-- **Confidence** — high / medium / low
+### Selenium *(standalone)*
 
-### Getting an Anthropic API key
+```typescript
+import { Builder } from 'selenium-webdriver';
+import { QAPulseSeleniumReporter } from 'qapulsesk-report/selenium';
+import * as fs from 'fs';
 
-1. Go to [console.anthropic.com](https://console.anthropic.com)
-2. Sign up / log in → API Keys → Create Key
-3. Add to your `.env` file: `ANTHROPIC_API_KEY=sk-ant-...`
+const reporter = new QAPulseSeleniumReporter({ reportTitle: 'Selenium Suite' });
+const driver = await new Builder().forBrowser('chrome').build();
+
+reporter.startTest('Login works', { suite: 'Auth' });
+try {
+  await driver.get('https://example.com/login');
+  reporter.endTest('passed');
+} catch (err) {
+  const shot = await driver.takeScreenshot();
+  const p = `/tmp/${Date.now()}.png`;
+  fs.writeFileSync(p, shot, 'base64');
+  reporter.endTest('failed', { error: err, screenshotPath: p });
+}
+
+await driver.quit();
+await reporter.finish();
+```
+
+### WebdriverIO
+
+```typescript
+// wdio.conf.ts
+import QAPulseWDIOReporter from 'qapulsesk-report/webdriverio';
+
+export const config = {
+  reporters: [
+    [QAPulseWDIOReporter, {
+      outputDir:   'qapulse-report',
+      reportTitle: 'WDIO Suite',
+      history:     { enabled: true },
+    }],
+  ],
+};
+```
+
+For screenshots, add an `afterTest` hook that calls `attachScreenshot(test.fullTitle, path)`.
 
 ---
 
-## 🔔 Slack / Teams Webhooks
+## 📊 What the Report Shows
+
+Every report is a **single portable HTML file** with:
+
+- **Metadata bar** — auto-detected git branch, commit, author, PR link, CI job link
+- **Diff banner** — `+N new · −N recovered · N still failing` vs the previous run
+- **Pass rate ring + sparkline** — at-a-glance status and trajectory across runs
+- **Stats cards** — passed / failed / skipped / duration / total
+- **🧩 Failure clusters** — similar errors grouped by normalized signature
+- **🔍 Insights**
+  - Suite health matrix (heatmap of per-suite pass rate)
+  - Duration distribution histogram
+  - Top 10 slowest tests
+  - Per-suite execution timeline (colored strip)
+- **📈 Trend chart** — pass rate + passed/failed counts over your last N runs
+- **❌ Failed tests** — expandable rows with error, stack, screenshots, AI analysis, and failure-state badge (🆕 new / 💥 regression / 🔁 recurring)
+- **🧪 All test suites** — every test with its status
+
+Plus a companion `qapulse-report.json` for downstream tools.
+
+---
+
+## 🎨 Themes
+
+Seven built-in presets — set with a single line:
 
 ```typescript
-webhooks: {
-  slack: {
-    url:        process.env.SLACK_WEBHOOK_URL,
-    onlyOnFail: true,  // only notify when tests fail
-  },
-  teams: {
-    url:        process.env.TEAMS_WEBHOOK_URL,
-    onlyOnFail: false,
-  }
+theme: { name: 'dracula' }
+```
+
+| Name | Look |
+|---|---|
+| `qapulse-dark` *(default)* | Deep blue-black, blue accent |
+| `qapulse-light` | Warm off-white, blue accent |
+| `github-dark` | GitHub UI dark palette |
+| `github-light` | GitHub UI light palette |
+| `dracula` | Dracula editor theme |
+| `solarized-light` | Solarized parchment |
+| `minimal` | Pure monochrome |
+
+Override any color inline:
+
+```typescript
+theme: { name: 'qapulse-dark', primaryColor: '#00ffcc' }
+```
+
+---
+
+## 📷 Screenshots on Failure
+
+Handled per runner:
+
+| Runner | How screenshots arrive |
+|---|---|
+| Playwright | Native — reads `result.attachments[]` |
+| Cypress | Native — reads `run.screenshots[]` by `testId` |
+| WebdriverIO | Via `attachScreenshot()` in `afterTest` hook |
+| Puppeteer | Pass `screenshotPath` to `endTest()` |
+| Selenium | Same as Puppeteer |
+| Jest / Vitest | Via `attachScreenshot()` in `afterEach` |
+
+The collector inlines small images (≤200 KB by default) as base64 data URIs so the report stays a single portable file. Larger images are copied to `<outputDir>/screenshots/`. Click any thumbnail for a full-screen lightbox (ESC to close).
+
+Config:
+
+```typescript
+screenshots: {
+  enabled:            true,   // default
+  onFailure:          true,   // default
+  onPass:             false,  // default
+  inlineThresholdKb:  200,    // default
+  outputSubdir:       'screenshots',
 }
 ```
 
-**On pass:**
-```
-✅ QA Pulse — Tests Passed
-101 passed · 0 failed · 2 skipped · 1m 24s
-```
+---
 
-**On fail:**
-```
-❌ QA Pulse — Tests Failed
-98 passed · 3 failed · 2 skipped · 1m 31s
-Failed: login test, checkout flow, payment validation
-```
+## 🧩 Failure Clustering
+
+Failures with similar normalized error signatures collapse into a single card with a `×N` badge. Under the hood:
+
+- Timestamps, UUIDs, hex, absolute paths, and integers are normalized out of the message + top stack frame
+- Failed tests are bucketed by signature
+- When AI is enabled, analysis runs once per **cluster** (representative test), not once per test — massive token savings
+
+Example: three timeout tests with different test names but the same error string produce one `×3` cluster with a single AI-generated root cause + fix.
 
 ---
 
-## 📈 Trend Charts
+## 🤖 AI Failure Analysis *(optional)*
 
-Enable history to see pass rate across your last N runs:
+**We never call any AI service by default.** Bring your own key.
+
+```typescript
+ai: {
+  enabled: true,
+  provider: 'anthropic',                        // or 'openai' | 'gemini'
+  apiKey:   process.env.ANTHROPIC_API_KEY,
+  model:    'claude-3-5-haiku-20241022',        // provider default used if omitted
+  maxFailuresToAnalyze: 10,
+}
+```
+
+Per cluster you get:
+- **Summary** — plain English
+- **Root cause** — what actually caused it
+- **Suggestion** — concrete fix
+- **Confidence** — high / medium / low
+
+Getting a key:
+- [Anthropic](https://console.anthropic.com) → API keys → Create → `ANTHROPIC_API_KEY=sk-ant-...`
+- [OpenAI](https://platform.openai.com/api-keys) → `OPENAI_API_KEY=...`
+- [Google Gemini](https://aistudio.google.com/apikey) → `GEMINI_API_KEY=...`
+
+---
+
+## 🔔 Slack / Teams / Discord Webhooks
+
+All three platforms get **rich context**, not just pass/fail counts:
+
+- Emoji + title with your `reportTitle`
+- Framework, pass rate, passed/failed/skipped, duration
+- Branch, commit hash, commit message *(auto-detected)*
+- `+N new · −N recovered · N still failing` vs previous run
+- Top 3 failure clusters with `×N` counts
+- Top N failed test titles (configurable)
+- Clickable buttons: **📊 View report**, **🔀 PR #123**, **⚙️ CI job**
+- Optional `@mention` on regressions
+
+```typescript
+webhooks: {
+  slack:   process.env.SLACK_WEBHOOK_URL,
+  teams:   process.env.TEAMS_WEBHOOK_URL,
+  discord: process.env.DISCORD_WEBHOOK_URL,
+
+  reportUrl:          'https://reports.example.com/latest',
+  notifyOnFailOnly:   true,
+  maxFailedInCard:    5,
+  mentionOnRegression: 'U0123ABC',   // Slack user or group id
+}
+```
+
+**Setup, per platform:**
+
+- **Slack** — App Directory → Incoming Webhooks → add to a channel → copy URL
+- **Teams** — Channel → Connectors → Incoming Webhook → configure → copy URL
+- **Discord** — Channel settings → Integrations → Webhooks → New → copy URL
+
+---
+
+## 📊 Cross-Run Insights
+
+Enable history and the report gains a pass-rate sparkline, a trend line chart, failure-state badges (🆕 / 💥 / 🔁), and a diff banner comparing to the previous run.
 
 ```typescript
 history: {
   enabled:     true,
-  maxRuns:     20,                          // default: 20
-  historyFile: '.qapulse-history.json'      // auto-created
+  maxRuns:     20,                          // default
+  historyFile: '.qapulse-history.json',     // auto-created inside outputDir
 }
 ```
 
-Run your tests multiple times → the trend chart builds automatically.
+Each stored run includes per-test outcomes, so QAPulseSK-report can tell whether a currently-failing test is:
+- **🆕 new** — never seen before
+- **💥 regression** — passed last time, fails now
+- **🔁 recurring (×N)** — failed for the last N runs in a row
+
+---
+
+## 🏷 Auto Git & CI Metadata
+
+Every report auto-detects and displays:
+- Git: branch, short commit, commit message, author, tag
+- CI: provider, job URL, PR number + link
+
+Detected providers: **GitHub Actions**, **GitLab CI**, **CircleCI**, **Jenkins**, **Bitbucket Pipelines**, and generic `CI=true` fallback.
+
+Disable entirely with `disableAutoMetadata: true`, or override:
+
+```typescript
+// Attach freely — user metadata always wins over auto-detected
+run.metadata = { git: { branch: 'my-override' }, custom: { anything: 'ok' } };
+```
+
+---
+
+## 📦 JSON Export
+
+Alongside `qapulse-report.html` you get `qapulse-report.json` with the full normalized `TestRun`, clusters, diff, and failure states. Great for:
+
+- Consumption by other tools (SAT, dashboards, CI gates)
+- Post-processing in Node/Python
+- Long-term storage / analytics
+
+Disable with `emitJson: false`.
 
 ---
 
@@ -236,28 +423,55 @@ Run your tests multiple times → the trend chart builds automatically.
 
 ```typescript
 {
-  outputDir?:           string;   // default: 'qapulse-report'
-  reportTitle?:         string;   // default: 'QAPulseSK Test Report'
-  openAfterGeneration?: boolean;  // default: false
-  logo?:                string;   // path to custom logo image
+  outputDir?:             string;     // default: 'qapulse-report'
+  reportTitle?:           string;     // default: 'QAPulseSK Test Report'
+  openAfterGeneration?:   boolean;    // default: false
+  logo?:                  string;     // optional logo image path or URL
+
+  theme?: {
+    name?:               'qapulse-dark' | 'qapulse-light' | 'github-dark' |
+                         'github-light' | 'dracula' | 'solarized-light' | 'minimal';
+    primaryColor?:       string;
+    backgroundColor?:    string;
+    cardColor?:          string;
+  };
 
   ai?: {
     enabled:               boolean;
+    provider?:             'anthropic' | 'openai' | 'gemini';
     apiKey?:               string;
-    model?:                string;  // default: claude-3-haiku-20240307
+    model?:                string;
     maxFailuresToAnalyze?: number;  // default: 10
   };
 
   webhooks?: {
-    slack?: { url: string; onlyOnFail?: boolean };
-    teams?: { url: string; onlyOnFail?: boolean };
+    slack?:                string;
+    teams?:                string;
+    discord?:              string;
+    custom?:               Array<{ url: string; headers?: Record<string,string>; template?: (run) => object }>;
+    notifyOnFailOnly?:     boolean;
+    reportUrl?:            string;
+    mentionOnRegression?:  string;
+    mentionOnNewFailures?: boolean;
+    maxFailedInCard?:      number;  // default: 5
   };
 
   history?: {
     enabled:      boolean;
-    historyFile?: string;  // default: .qapulse-history.json
+    historyFile?: string;
     maxRuns?:     number;  // default: 20
   };
+
+  screenshots?: {
+    enabled?:            boolean;  // default: true
+    onFailure?:          boolean;  // default: true
+    onPass?:             boolean;  // default: false
+    inlineThresholdKb?:  number;   // default: 200
+    outputSubdir?:       string;   // default: 'screenshots'
+  };
+
+  emitJson?:             boolean;  // default: true
+  disableAutoMetadata?:  boolean;  // default: false
 }
 ```
 
@@ -265,49 +479,49 @@ Run your tests multiple times → the trend chart builds automatically.
 
 ## 🧪 See It In Action
 
-The `with-packages` branch of the Playwright boilerplate has `qapulsesk-report` wired as a reporter with a dedicated demo spec:
+The `with-packages` branch of the Playwright boilerplate wires `qapulsesk-report` and ships a dedicated demo spec:
 
 ```bash
 git clone -b with-packages https://github.com/QAPulse-by-SK/playwright-boilerplate.git
 cd playwright-boilerplate && npm install && npx playwright install
 
-# Run the report demo — generates a realistic pass/fail/skip mix
 npx playwright test tests/packages/report.demo.spec.ts --project=chromium
-
-# Open the generated report
 open qapulse-report/qapulse-report.html
 ```
 
-**What the demo test file covers:**
-
-| Suite | Tests | Purpose |
-|---|---|---|
-| E2E — the-internet | 8 (7 pass, 1 intentional fail) | Shows failed test row in report |
-| API — jsonplaceholder | 5 pass | Shows API test suite |
-| Performance | 3 pass | Shows timing data |
-| Skipped | 2 skip | Shows skipped count in stats |
-
-**Total: 15 passing · 1 intentional fail · 2 skipped**
-The intentional failure is designed to showcase how the report displays error details — click the failed row in the report to see the full error message.
-
 **Live demo report:** [qapulse-report-sk.surge.sh](https://qapulse-report-sk.surge.sh)
-
-| File | Tests | What it tests |
-|---|---|---|
-| [report.demo.spec.ts](https://github.com/QAPulse-by-SK/playwright-boilerplate/blob/with-packages/tests/packages/report.demo.spec.ts) | 18 | Realistic mix for report showcase |
-| [playwright.config.ts](https://github.com/QAPulse-by-SK/playwright-boilerplate/blob/with-packages/playwright.config.ts) | — | How reporter is wired |
 
 ---
 
 ## 📋 Changelog
 
-### v1.0.5
-- Fixed Playwright adapter — `suite.tests` and `tc.titlePath` are properties not functions
-- Moved suite mapping to `onEnd()` so all test results are populated before generating report
-- Report now correctly shows passed / failed / skipped counts
+### v2.3.0
+- Rich Slack / Teams / **Discord** webhooks: failed test list, cluster summary, diff vs previous run, git/PR link, "View report" button, optional @-mention on regressions
+- `reportUrl` config for clickable button in cards
+- Live-fire webhook smoke test (`npm run smoke:webhooks`)
 
-### v1.0.3
-- Initial release with Playwright, Cypress, Jest, Vitest adapters
+### v2.2.0
+- **🧩 Failure clustering** — local error-signature bucketing; AI runs once per cluster instead of per test
+- **🔍 Insights section** — suite health matrix, duration histogram, top 10 slowest, per-suite execution timeline (all zero-dep SVG)
+- **Diff vs previous run** — `+N new / −N recovered / N still failing` banner
+- **Failure-state badges** — 🆕 new / 💥 regression / 🔁 recurring (×N) per failing test
+- **Auto git/CI metadata bar** — branch, commit, author, PR + job links; supports GitHub Actions / GitLab / CircleCI / Jenkins / Bitbucket
+- **JSON export** — `qapulse-report.json` alongside HTML
+- **Sparkline** in pass-rate card
+- Fix: history save now ensures output dir exists
+
+### v2.1.0
+- **7 built-in themes** — qapulse-dark, qapulse-light, github-dark, github-light, dracula, solarized-light, minimal
+- Legacy color overrides still work
+
+### v2.0.0
+- **Screenshots on failure** across all runners (inline base64 ≤200 KB, else copied) with click-to-zoom lightbox
+- **3 new runners**: Puppeteer, Selenium, WebdriverIO — 4 → 7
+- New `attachScreenshot(fullTestName, path)` registry for runner-agnostic capture
+- Extracted shared `orchestrator` from adapter pipelines
+
+### v1.0.x
+- Initial releases: Playwright, Cypress, Jest, Vitest adapters
 - Dark-theme HTML report
 - Slack / Teams webhooks
 - AI failure analysis
@@ -321,6 +535,7 @@ The intentional failure is designed to showcase how the report displays error de
 |---------|-------------|
 | [qapulsesk-assert](https://www.npmjs.com/package/qapulsesk-assert) | Fuzzy assertions, schema validation, AI-powered checks |
 | [qapulsesk-gen](https://www.npmjs.com/package/qapulsesk-gen) | HAR → tests, recordings → tests, plain English → tests |
+| [qapulsesk-healer](https://www.npmjs.com/package/qapulsesk-healer) | Self-healing locators for Playwright/Selenium |
 
 ---
 

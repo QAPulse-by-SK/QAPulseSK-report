@@ -122,7 +122,7 @@ export async function generateReport(
 
   // 6. Webhooks (opt-in)
   if (config.webhooks) {
-    await sendWebhooks(run, config.webhooks);
+    await sendWebhooks(run, config.webhooks, { clusters, diff });
   }
 
   // 7. Console + open
