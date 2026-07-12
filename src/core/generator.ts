@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TestRun, TestResult, TestSuite } from '../core/types';
-import { formatDuration, flattenTests } from '../core/stats';
+import { formatDuration, flattenTests, flattenSuites } from '../core/stats';
 import { AIAnalysis } from '../ai/analyzer';
-import { TrendData, ThemeConfig } from '../core/types';
+import { TrendData, ThemeConfig, RunMetadata } from '../core/types';
 import { resolveTheme, renderThemeCss } from './themes';
+import { FailureCluster } from './clustering';
+import { RunDiff, FailureState, HistoryEntry } from './diff';
 
 function escapeHtml(str: string): string {
   return str
@@ -23,6 +25,48 @@ function statusBadge(status: string): string {
     pending: '<span class="badge badge-skip">PEND</span>',
   };
   return map[status] || `<span class="badge">${status.toUpperCase()}</span>`;
+}
+
+function renderMetadataBar(meta?: RunMetadata): string {
+  if (!meta || (!meta.git && !meta.ci)) return '';
+  const g = meta.git || {};
+  const c = meta.ci || {};
+  const bits: string[] = [];
+  if (g.branch) bits.push(`<span class="meta-item"><b>branch</b> ${escapeHtml(g.branch)}</span>`);
+  if (g.commitShort) {
+    const msg = g.commitMessage ? ` — ${escapeHtml(g.commitMessage.slice(0, 60))}` : '';
+    bits.push(`<span class="meta-item"><b>commit</b> <code>${escapeHtml(g.commitShort)}</code>${msg}</span>`);
+  }
+  if (g.author) bits.push(`<span class="meta-item"><b>author</b> ${escapeHtml(g.author)}</span>`);
+  if (c.prNumber) {
+    const prLabel = c.prUrl ? `<a href="${escapeHtml(c.prUrl)}" target="_blank">#${escapeHtml(c.prNumber)}</a>` : `#${escapeHtml(c.prNumber)}`;
+    bits.push(`<span class="meta-item"><b>PR</b> ${prLabel}</span>`);
+  }
+  if (c.jobUrl) bits.push(`<span class="meta-item"><b>${escapeHtml(c.provider || 'ci')}</b> <a href="${escapeHtml(c.jobUrl)}" target="_blank">job ↗</a></span>`);
+  else if (c.provider) bits.push(`<span class="meta-item"><b>${escapeHtml(c.provider)}</b></span>`);
+  if (bits.length === 0) return '';
+  return `<div class="meta-bar">${bits.join('')}</div>`;
+}
+
+function renderDiffBanner(diff: RunDiff | null): string {
+  if (!diff) return '';
+  if (!diff.newFailures.length && !diff.recovered.length && !diff.stillFailing.length) return '';
+  const parts: string[] = [];
+  if (diff.newFailures.length) parts.push(`<span class="diff-new">+${diff.newFailures.length} new</span>`);
+  if (diff.recovered.length) parts.push(`<span class="diff-rec">−${diff.recovered.length} recovered</span>`);
+  if (diff.stillFailing.length) parts.push(`<span class="diff-same">${diff.stillFailing.length} still failing</span>`);
+  return `<div class="diff-banner">vs previous run: ${parts.join(' · ')}</div>`;
+}
+
+function renderFailureStateBadge(state?: { state: FailureState; consecutive: number }): string {
+  if (!state) return '';
+  const map = {
+    'new': { emoji: '🆕', label: 'new', cls: 'fs-new' },
+    'regression': { emoji: '💥', label: 'regression', cls: 'fs-reg' },
+    'recurring': { emoji: '🔁', label: `recurring (×${state.consecutive})`, cls: 'fs-rec' },
+  };
+  const b = map[state.state];
+  return `<span class="fs-badge ${b.cls}">${b.emoji} ${b.label}</span>`;
 }
 
 function renderScreenshots(test: TestResult): string {
@@ -44,7 +88,7 @@ function renderScreenshots(test: TestResult): string {
   return `<div class="shots-gallery"><div class="shots-title">📷 Screenshots (${shots.length})</div><div class="shots-grid">${items}</div></div>`;
 }
 
-function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string {
+function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>, failureStates: Map<string, { state: FailureState; consecutive: number }> = new Map()): string {
   const ai = aiMap.get(test.id);
   const errorBlock = test.error
     ? `<div class="error-block">
@@ -69,7 +113,7 @@ function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string
   return `
     <tr class="test-row test-${test.status}" ${hasDetails ? `onclick="toggleDetails('${test.id}')"` : ''} ${hasDetails ? 'style="cursor:pointer"' : ''}>
       <td>${statusBadge(test.status)}</td>
-      <td class="test-title">${escapeHtml(test.fullTitle)}</td>
+      <td class="test-title">${escapeHtml(test.fullTitle)} ${renderFailureStateBadge(failureStates.get(test.id))}</td>
       <td class="test-duration">${formatDuration(test.duration)}</td>
       <td class="test-file">${escapeHtml(test.file || '')}</td>
     </tr>
@@ -79,10 +123,10 @@ function renderTestRow(test: TestResult, aiMap: Map<string, AIAnalysis>): string
   `;
 }
 
-function renderSuite(suite: TestSuite, aiMap: Map<string, AIAnalysis>, depth = 0): string {
+function renderSuite(suite: TestSuite, aiMap: Map<string, AIAnalysis>, depth = 0, failureStates: Map<string, { state: FailureState; consecutive: number }> = new Map()): string {
   const indent = depth > 0 ? `style="margin-left:${depth * 16}px"` : '';
-  const rows = suite.tests.map(t => renderTestRow(t, aiMap)).join('');
-  const nested = (suite.suites || []).map(s => renderSuite(s, aiMap, depth + 1)).join('');
+  const rows = suite.tests.map(t => renderTestRow(t, aiMap, failureStates)).join('');
+  const nested = (suite.suites || []).map(s => renderSuite(s, aiMap, depth + 1, failureStates)).join('');
 
   return `
     <div class="suite" ${indent}>
@@ -94,6 +138,157 @@ function renderSuite(suite: TestSuite, aiMap: Map<string, AIAnalysis>, depth = 0
       ${nested}
     </div>
   `;
+}
+
+function renderSuiteMatrix(run: TestRun, themeVars: { green: string; amber: string; red: string; muted: string }): string {
+  const suites = flattenSuites(run.suites).filter(s => s.tests.length > 0);
+  if (suites.length < 2) return '';
+  const cells = suites.map(s => {
+    const passed = s.tests.filter(t => t.status === 'passed').length;
+    const failed = s.tests.filter(t => t.status === 'failed').length;
+    const total = s.tests.length;
+    const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const color = pct === 100 ? themeVars.green : pct >= 80 ? themeVars.amber : themeVars.red;
+    const label = escapeHtml(s.title);
+    return `
+      <div class="matrix-cell" style="background:${color};opacity:${0.35 + (pct / 100) * 0.55}" title="${label}: ${passed}/${total} passed (${failed} failed)">
+        <div class="matrix-cell-label">${label}</div>
+        <div class="matrix-cell-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="insight-card">
+      <div class="insight-title">Suite health (${suites.length} suites)</div>
+      <div class="matrix-grid">${cells}</div>
+    </div>`;
+}
+
+function renderDurationHistogram(run: TestRun, themeVars: { blue: string; muted: string }): string {
+  const tests = flattenTests(run.suites).filter(t => t.duration > 0);
+  if (tests.length < 3) return '';
+  const buckets = [
+    { label: '<100ms', max: 100, count: 0 },
+    { label: '100ms–1s', max: 1000, count: 0 },
+    { label: '1–5s', max: 5000, count: 0 },
+    { label: '5–15s', max: 15000, count: 0 },
+    { label: '15–30s', max: 30000, count: 0 },
+    { label: '>30s', max: Infinity, count: 0 },
+  ];
+  for (const t of tests) {
+    const b = buckets.find(b => t.duration <= b.max);
+    if (b) b.count++;
+  }
+  const max = Math.max(...buckets.map(b => b.count), 1);
+  const bars = buckets.map(b => {
+    const h = Math.round((b.count / max) * 80);
+    return `
+      <div class="histo-col">
+        <div class="histo-count">${b.count}</div>
+        <div class="histo-bar" style="height:${h}px;background:${themeVars.blue}"></div>
+        <div class="histo-label">${b.label}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="insight-card">
+      <div class="insight-title">Duration distribution</div>
+      <div class="histo-grid">${bars}</div>
+    </div>`;
+}
+
+function renderTopSlowest(run: TestRun, themeVars: { blue: string; red: string; muted: string }): string {
+  const tests = flattenTests(run.suites).filter(t => t.duration > 0);
+  if (tests.length < 3) return '';
+  const top = [...tests].sort((a, b) => b.duration - a.duration).slice(0, 10);
+  const max = top[0].duration || 1;
+  const rows = top.map(t => {
+    const w = Math.round((t.duration / max) * 100);
+    const color = t.status === 'failed' ? themeVars.red : themeVars.blue;
+    return `
+      <div class="slow-row">
+        <div class="slow-title" title="${escapeHtml(t.fullTitle)}">${escapeHtml(t.fullTitle)}</div>
+        <div class="slow-bar-wrap"><div class="slow-bar" style="width:${w}%;background:${color}"></div></div>
+        <div class="slow-time">${formatDuration(t.duration)}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="insight-card">
+      <div class="insight-title">Top ${top.length} slowest tests</div>
+      <div class="slow-list">${rows}</div>
+    </div>`;
+}
+
+function renderFailureTimeline(run: TestRun, themeVars: { green: string; red: string; muted: string; amber: string }): string {
+  const suites = flattenSuites(run.suites).filter(s => s.tests.length >= 2);
+  if (suites.length === 0) return '';
+  const rows = suites.slice(0, 20).map(s => {
+    const cells = s.tests.map(t => {
+      const color =
+        t.status === 'passed' ? themeVars.green :
+        t.status === 'failed' ? themeVars.red :
+        t.status === 'skipped' ? themeVars.muted :
+        themeVars.amber;
+      return `<span class="tl-cell" style="background:${color}" title="${escapeHtml(t.fullTitle)} — ${t.status}"></span>`;
+    }).join('');
+    return `
+      <div class="tl-row">
+        <div class="tl-label" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</div>
+        <div class="tl-strip">${cells}</div>
+        <div class="tl-count">${s.tests.length}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="insight-card">
+      <div class="insight-title">Execution timeline (per suite, in run order)</div>
+      <div class="tl-legend">
+        <span><i style="background:${themeVars.green}"></i>pass</span>
+        <span><i style="background:${themeVars.red}"></i>fail</span>
+        <span><i style="background:${themeVars.muted}"></i>skip</span>
+      </div>
+      <div class="tl-list">${rows}</div>
+    </div>`;
+}
+
+function renderInsights(run: TestRun, themeVars: { blue: string; green: string; amber: string; red: string; muted: string; text: string }): string {
+  const matrix = renderSuiteMatrix(run, themeVars);
+  const histo = renderDurationHistogram(run, themeVars);
+  const slow = renderTopSlowest(run, themeVars);
+  const timeline = renderFailureTimeline(run, themeVars);
+  const any = matrix || histo || slow || timeline;
+  if (!any) return '';
+  return `
+    <section class="section">
+      <h2 class="section-title">🔍 Insights</h2>
+      <div class="insights-grid">
+        ${matrix}
+        ${histo}
+        ${slow}
+        ${timeline}
+      </div>
+    </section>`;
+}
+
+function renderClusterSection(clusters: FailureCluster[]): string {
+  const dedupable = clusters.filter(c => c.tests.length >= 2 || c.rootCause || c.suggestedFix);
+  if (dedupable.length === 0) return '';
+  const items = clusters.map(c => {
+    const memberList = c.tests.map(t => `<li>${escapeHtml(t.fullTitle)}</li>`).join('');
+    const fix = c.suggestedFix ? `<div class="cluster-fix"><strong>Suggested fix:</strong> ${escapeHtml(c.suggestedFix)}</div>` : '';
+    const cause = c.rootCause ? `<div class="cluster-cause"><strong>Root cause:</strong> ${escapeHtml(c.rootCause)}</div>` : '';
+    return `
+      <div class="cluster-card">
+        <div class="cluster-head">
+          <span class="cluster-count">×${c.tests.length}</span>
+          <code class="cluster-sig">${escapeHtml(c.signature)}</code>
+        </div>
+        ${cause}${fix}
+        <details class="cluster-members"><summary>${c.tests.length} affected test${c.tests.length === 1 ? '' : 's'}</summary><ul>${memberList}</ul></details>
+      </div>`;
+  }).join('');
+  return `
+    <section class="section">
+      <h2 class="section-title">🧩 Failure clusters (${clusters.length})</h2>
+      <div class="cluster-grid">${items}</div>
+    </section>`;
 }
 
 function renderSparkline(history: TrendData[], color: string): string {
@@ -170,16 +365,19 @@ function renderTrendChart(history: TrendData[], themeVars: { blue: string; green
 export function generateHTML(
   run: TestRun,
   aiMap: Map<string, AIAnalysis>,
-  history: TrendData[],
+  history: HistoryEntry[] | TrendData[],
   reportTitle: string,
   logo?: string,
-  theme?: ThemeConfig
+  theme?: ThemeConfig,
+  clusters: FailureCluster[] = [],
+  diff: RunDiff | null = null,
+  failureStates: Map<string, { state: FailureState; consecutive: number }> = new Map()
 ): string {
   const { stats } = run;
   const themeVars = resolveTheme(theme);
   const themeCss = renderThemeCss(themeVars);
   const allFailed = flattenTests(run.suites).filter(t => t.status === 'failed');
-  const suiteBlocks = run.suites.map(s => renderSuite(s, aiMap)).join('');
+  const suiteBlocks = run.suites.map(s => renderSuite(s, aiMap, 0, failureStates)).join('');
   const passColor = stats.passRate === 100 ? themeVars.green : stats.failed > 0 ? themeVars.red : themeVars.amber;
   const generatedAt = new Date().toUTCString();
   const logoHtml = logo
@@ -226,6 +424,69 @@ export function generateHTML(
   .pass-ring svg { transform: rotate(-90deg); }
   .pass-ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; font-weight: 600; }
   .sparkline { display: block; margin-top: 6px; width: 100%; max-width: 140px; height: 24px; }
+
+  /* Failure clusters */
+  .cluster-grid { display: grid; gap: 12px; }
+  .cluster-card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: var(--radius); padding: 14px 16px; }
+  .cluster-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .cluster-count { background: var(--red); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; font-family: var(--mono); }
+  .cluster-sig { font-family: var(--mono); font-size: 12px; color: var(--text); background: rgba(128,128,128,0.08); padding: 2px 6px; border-radius: 3px; word-break: break-word; }
+  .cluster-cause, .cluster-fix { font-size: 13px; color: var(--text); margin-top: 6px; }
+  .cluster-fix { color: var(--blue); }
+  .cluster-members { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .cluster-members summary { cursor: pointer; user-select: none; }
+  .cluster-members ul { margin: 6px 0 0 18px; padding: 0; }
+  .cluster-members li { margin: 2px 0; }
+
+  /* Insights */
+  .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+  .insight-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .insight-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  /* matrix */
+  .matrix-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 4px; }
+  .matrix-cell { padding: 8px 6px; border-radius: 4px; color: #fff; text-align: center; min-height: 44px; display: flex; flex-direction: column; justify-content: center; }
+  .matrix-cell-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .matrix-cell-pct { font-size: 12px; font-weight: 600; margin-top: 2px; }
+  /* histogram */
+  .histo-grid { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+  .histo-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .histo-count { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .histo-bar { width: 100%; max-width: 40px; min-height: 2px; border-radius: 3px 3px 0 0; }
+  .histo-label { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; font-family: var(--mono); }
+  /* slowest */
+  .slow-list { display: flex; flex-direction: column; gap: 6px; }
+  .slow-row { display: grid; grid-template-columns: 1fr 80px 60px; align-items: center; gap: 8px; font-size: 12px; }
+  .slow-title { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slow-bar-wrap { background: rgba(128,128,128,0.12); border-radius: 3px; height: 8px; overflow: hidden; }
+  .slow-bar { height: 100%; }
+  .slow-time { color: var(--muted); font-family: var(--mono); font-size: 11px; text-align: right; }
+  /* timeline */
+  .tl-legend { display: flex; gap: 12px; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .tl-legend span { display: flex; align-items: center; gap: 4px; }
+  .tl-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .tl-list { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+  .tl-row { display: grid; grid-template-columns: 120px 1fr 30px; align-items: center; gap: 8px; font-size: 11px; }
+  .tl-label { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl-strip { display: flex; gap: 1px; height: 12px; }
+  .tl-cell { flex: 1; min-width: 3px; border-radius: 1px; }
+  .tl-count { color: var(--muted); font-family: var(--mono); font-size: 10px; text-align: right; }
+
+  /* Meta bar */
+  .meta-bar { display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+  .meta-item b { color: var(--text); font-weight: 500; margin-right: 6px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+  .meta-item code { font-family: var(--mono); color: var(--text); background: rgba(128,128,128,0.1); padding: 1px 5px; border-radius: 3px; }
+
+  /* Diff banner */
+  .diff-banner { padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+  .diff-new { color: var(--red); font-weight: 600; margin: 0 4px; }
+  .diff-rec { color: var(--green); font-weight: 600; margin: 0 4px; }
+  .diff-same { color: var(--amber); font-weight: 600; margin: 0 4px; }
+
+  /* Failure-state badges (inline in test title) */
+  .fs-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; margin-left: 8px; vertical-align: middle; letter-spacing: 0.02em; }
+  .fs-new { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .fs-reg { background: rgba(239,68,68,0.15); color: var(--red); }
+  .fs-rec { background: rgba(245,158,11,0.15); color: var(--amber); }
 
   /* Section */
   .section { margin-bottom: 28px; }
@@ -321,6 +582,9 @@ export function generateHTML(
 
 <main class="container">
 
+  ${renderMetadataBar(run.metadata)}
+  ${renderDiffBanner(diff)}
+
   <!-- Stats -->
   <div class="stats-grid">
     <div class="pass-rate-card">
@@ -369,6 +633,8 @@ export function generateHTML(
   </div>
 
   <!-- Trend chart -->
+  ${renderClusterSection(clusters)}
+  ${renderInsights(run, themeVars)}
   ${renderTrendChart(history, themeVars)}
 
   <!-- Failed tests summary -->
@@ -377,7 +643,7 @@ export function generateHTML(
     <h2 class="section-title">❌ Failed Tests (${allFailed.length})</h2>
     <table class="test-table">
       <thead><tr><th>Status</th><th>Test</th><th>Duration</th><th>File</th></tr></thead>
-      <tbody>${allFailed.map(t => renderTestRow(t, aiMap)).join('')}</tbody>
+      <tbody>${allFailed.map(t => renderTestRow(t, aiMap, failureStates)).join('')}</tbody>
     </table>
   </section>` : ''}
 

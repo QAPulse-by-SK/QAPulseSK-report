@@ -15,5 +15,10 @@ export { attachScreenshot } from './core/screenshot-registry';
 export { collectScreenshots, makeScreenshot } from './core/screenshots';
 export { listThemes, resolveTheme, DEFAULT_THEME } from './core/themes';
 export type { ThemeName, ThemeVars } from './core/themes';
-export type { QAPulseReportConfig, AIConfig, WebhookConfig, TestRun, TestSuite, TestResult, TestStats, TestError, TrendData, Screenshot, ScreenshotConfig, SupportedFramework, } from './core/types';
+export { clusterFailures, signatureFor, clusterIdFor } from './core/clustering';
+export type { FailureCluster } from './core/clustering';
+export { detectMetadata, mergeMetadata } from './core/metadata';
+export { classifyFailures, computeDiff, buildOutcomes } from './core/diff';
+export type { RunDiff, FailureState, HistoryEntry } from './core/diff';
+export type { QAPulseReportConfig, AIConfig, WebhookConfig, TestRun, TestSuite, TestResult, TestStats, TestError, TrendData, Screenshot, ScreenshotConfig, RunMetadata, SupportedFramework, } from './core/types';
 //# sourceMappingURL=index.d.ts.map

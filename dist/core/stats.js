@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateStats = calculateStats;
 exports.flattenTests = flattenTests;
 exports.getFailedTests = getFailedTests;
+exports.flattenSuites = flattenSuites;
 exports.formatDuration = formatDuration;
 exports.generateRunId = generateRunId;
 function calculateStats(suites) {
@@ -28,6 +29,15 @@ function flattenTests(suites) {
 }
 function getFailedTests(run) {
     return flattenTests(run.suites).filter(t => t.status === 'failed');
+}
+function flattenSuites(suites) {
+    const out = [];
+    for (const s of suites) {
+        out.push(s);
+        if (s.suites)
+            out.push(...flattenSuites(s.suites));
+    }
+    return out;
 }
 function formatDuration(ms) {
     if (ms < 1000)

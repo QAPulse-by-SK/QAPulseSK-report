@@ -59,6 +59,41 @@ async function run(label) {
   await reporter.finish();
 }
 
+async function runWithClusters() {
+  const r = new QAPulsePuppeteerReporter({
+    outputDir: path.join(OUT, 'clusters'),
+    reportTitle: 'Clustering demo',
+  });
+
+  // Passing tests with fake duration (spread across buckets for histogram)
+  const dur = [50, 300, 800, 2500, 8000, 12000];
+  const suites = ['Auth', 'Checkout', 'Profile', 'Search'];
+  let i = 0;
+  for (const s of suites) {
+    r.startTest(`fast smoke ${s}`, { suite: s });
+    r.endTest('passed');
+    const list = r.buckets.get(s);
+    list[list.length - 1].duration = dur[i % dur.length];
+    i++;
+  }
+  for (const s of suites) {
+    r.startTest(`slow scenario ${s}`, { suite: s });
+    r.endTest('passed');
+    const list = r.buckets.get(s);
+    list[list.length - 1].duration = dur[(i + 2) % dur.length] * 3;
+    i++;
+  }
+
+  // 3 timeouts with IDENTICAL selectors so they collapse into ONE cluster.
+  for (const _ of [0, 1, 2]) {
+    r.startTest(`timeout scenario ${_}`, { suite: 'Timeouts' });
+    r.endTest('failed', { error: new Error('Timeout of 30000ms exceeded waiting for selector "#login"') });
+  }
+  r.startTest('d', { suite: 'Assertions' });
+  r.endTest('failed', { error: new Error('Expected 200 but got 500') });
+  await r.finish();
+}
+
 (async () => {
   console.log('▶  Run 1…');
   await run('Run 1');
@@ -68,6 +103,9 @@ async function run(label) {
   console.log('   history after run 1:', midHist ? `${midHist.length} entries` : 'FILE MISSING');
   console.log('▶  Run 2…');
   await run('Run 2');
+
+  await runWithClusters();
+  const clusterHtml = fs.readFileSync(path.join(OUT, 'clusters', 'qapulse-report.html'), 'utf8');
 
   // Generate one report per theme so you can eyeball all 7
   const ALL_THEMES = [
@@ -133,6 +171,28 @@ async function run(label) {
   check('qapulse-light theme: bg #fbf9f4', lightHtml.includes('#fbf9f4'));
   check('github-dark theme: bg #0d1117', ghDarkHtml.includes('#0d1117'));
   check('Default report is qapulse-dark (#0d0f12)', html.includes('#0d0f12'));
+  check('Clustering: report contains cluster section', clusterHtml.includes('Failure clusters'));
+  check('Clustering: 3 timeouts collapsed to ×3 badge', clusterHtml.includes('×3'));
+  check('Clustering: 2 distinct clusters (timeouts + assertion)', (clusterHtml.match(/class="cluster-card"/g) || []).length === 2);
+  check('Insights: suite matrix present', clusterHtml.includes('Suite health'));
+  check('Insights: duration histogram present', clusterHtml.includes('Duration distribution'));
+  check('Insights: top slowest present', clusterHtml.includes('slowest tests'));
+  check('Insights: timeline present', clusterHtml.includes('Execution timeline'));
+
+  // v2.2 diff + metadata + JSON export
+  const jsonPath = path.join(OUT, 'qapulse-report.json');
+  check('JSON export written alongside HTML', fs.existsSync(jsonPath));
+  if (fs.existsSync(jsonPath)) {
+    const j = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    check('JSON export contains stats', typeof j.stats?.passRate === 'number');
+    check('JSON export contains clusters array', Array.isArray(j.clusters));
+    check('JSON export contains failureStates array', Array.isArray(j.failureStates));
+  }
+
+  check('Diff banner rendered on run 2', html.includes('vs previous run'));
+  check('Failure-state badge rendered', html.includes('fs-rec') || html.includes('fs-new') || html.includes('fs-reg'));
+  const hasGitMeta = html.includes('meta-bar');
+  check('Metadata bar rendered (git detected)', hasGitMeta, hasGitMeta ? 'yes' : 'no env');
 
   console.log('');
   const pad = 55;

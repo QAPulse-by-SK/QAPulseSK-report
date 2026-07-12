@@ -37,6 +37,7 @@ exports.HistoryManager = void 0;
 exports.resolveHistoryPath = resolveHistoryPath;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const diff_1 = require("./diff");
 const DEFAULT_HISTORY_FILE = '.qapulse-history.json';
 const DEFAULT_MAX_RUNS = 20;
 class HistoryManager {
@@ -66,6 +67,7 @@ class HistoryManager {
             skipped: run.stats.skipped,
             duration: run.stats.duration,
             passRate: run.stats.passRate,
+            outcomes: (0, diff_1.buildOutcomes)(run),
         };
         history.push(entry);
         // Keep only last N runs

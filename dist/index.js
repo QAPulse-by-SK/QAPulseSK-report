@@ -2,7 +2,7 @@
 // QAPulseSK-report — All-in-one test reporter by QAPulse by SK
 // https://skakarh.com · https://github.com/QAPulse-by-SK
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_THEME = exports.resolveTheme = exports.listThemes = exports.makeScreenshot = exports.collectScreenshots = exports.attachScreenshot = exports.withDefaults = exports.generateReport = exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.QAPulseWebdriverIOReporter = exports.QAPulseSeleniumReporter = exports.QAPulsePuppeteerReporter = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
+exports.buildOutcomes = exports.computeDiff = exports.classifyFailures = exports.mergeMetadata = exports.detectMetadata = exports.clusterIdFor = exports.signatureFor = exports.clusterFailures = exports.DEFAULT_THEME = exports.resolveTheme = exports.listThemes = exports.makeScreenshot = exports.collectScreenshots = exports.attachScreenshot = exports.withDefaults = exports.generateReport = exports.HistoryManager = exports.getFailedTests = exports.formatDuration = exports.calculateStats = exports.writeReport = exports.generateHTML = exports.sendWebhooks = exports.analyzeFailures = exports.QAPulseWebdriverIOReporter = exports.QAPulseSeleniumReporter = exports.QAPulsePuppeteerReporter = exports.qapulseCypressPlugin = exports.QAPulseVitestReporter = exports.QAPulseJestReporter = exports.QAPulsePlaywrightReporter = void 0;
 var playwright_1 = require("./adapters/playwright");
 Object.defineProperty(exports, "QAPulsePlaywrightReporter", { enumerable: true, get: function () { return playwright_1.QAPulsePlaywrightReporter; } });
 var jest_1 = require("./adapters/jest");
@@ -42,4 +42,15 @@ var themes_1 = require("./core/themes");
 Object.defineProperty(exports, "listThemes", { enumerable: true, get: function () { return themes_1.listThemes; } });
 Object.defineProperty(exports, "resolveTheme", { enumerable: true, get: function () { return themes_1.resolveTheme; } });
 Object.defineProperty(exports, "DEFAULT_THEME", { enumerable: true, get: function () { return themes_1.DEFAULT_THEME; } });
+var clustering_1 = require("./core/clustering");
+Object.defineProperty(exports, "clusterFailures", { enumerable: true, get: function () { return clustering_1.clusterFailures; } });
+Object.defineProperty(exports, "signatureFor", { enumerable: true, get: function () { return clustering_1.signatureFor; } });
+Object.defineProperty(exports, "clusterIdFor", { enumerable: true, get: function () { return clustering_1.clusterIdFor; } });
+var metadata_1 = require("./core/metadata");
+Object.defineProperty(exports, "detectMetadata", { enumerable: true, get: function () { return metadata_1.detectMetadata; } });
+Object.defineProperty(exports, "mergeMetadata", { enumerable: true, get: function () { return metadata_1.mergeMetadata; } });
+var diff_1 = require("./core/diff");
+Object.defineProperty(exports, "classifyFailures", { enumerable: true, get: function () { return diff_1.classifyFailures; } });
+Object.defineProperty(exports, "computeDiff", { enumerable: true, get: function () { return diff_1.computeDiff; } });
+Object.defineProperty(exports, "buildOutcomes", { enumerable: true, get: function () { return diff_1.buildOutcomes; } });
 //# sourceMappingURL=index.js.map

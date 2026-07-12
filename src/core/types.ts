@@ -73,7 +73,29 @@ export interface TestRun {
   suites: TestSuite[];
   stats: TestStats;
   framework: SupportedFramework;
-  metadata?: Record<string, unknown>;
+  metadata?: RunMetadata;
+}
+
+export interface RunMetadata {
+  git?: {
+    branch?: string;
+    commit?: string;
+    commitShort?: string;
+    commitMessage?: string;
+    author?: string;
+    tag?: string;
+  };
+  ci?: {
+    provider?: string;
+    jobUrl?: string;
+    jobId?: string;
+    prNumber?: string;
+    prUrl?: string;
+    workflow?: string;
+  };
+  // Free-form extras — users can attach whatever
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 export interface TestStats {
@@ -98,6 +120,10 @@ export interface QAPulseReportConfig {
   history?: HistoryConfig;
   screenshots?: ScreenshotConfig;
   logo?: string;
+  /** Emit qapulse-report.json alongside the HTML. Default: true. */
+  emitJson?: boolean;
+  /** Skip auto-detection of git/CI metadata from env. Default: false. */
+  disableAutoMetadata?: boolean;
 }
 
 export interface AIConfig {

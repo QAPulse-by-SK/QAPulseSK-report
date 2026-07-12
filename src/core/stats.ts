@@ -28,6 +28,15 @@ export function getFailedTests(run: TestRun): TestResult[] {
   return flattenTests(run.suites).filter(t => t.status === 'failed');
 }
 
+export function flattenSuites(suites: TestSuite[]): TestSuite[] {
+  const out: TestSuite[] = [];
+  for (const s of suites) {
+    out.push(s);
+    if (s.suites) out.push(...flattenSuites(s.suites));
+  }
+  return out;
+}
+
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
